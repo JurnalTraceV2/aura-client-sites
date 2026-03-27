@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, LogOut, Key, Shield, Clock, AlertCircle } from 'lucide-react';
-import { auth, db, handleFirestoreError, OperationType } from '../firebase';
+import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { ref, onValue } from 'firebase/database';
 
 interface DashboardModalProps {
   isOpen: boolean;
@@ -21,23 +21,20 @@ export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
     setLoading(true);
     setError(null);
 
-    const unsubscribe = onSnapshot(
-      doc(db, 'users', auth.currentUser.uid),
-      (docSnap) => {
-        if (docSnap.exists()) {
-          setUserData(docSnap.data());
-        } else {
-          setError('Данные пользователя не найдены');
-        }
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Firestore error:', error);
-        setError('Ошибка загрузки данных. Проверьте подключение к интернету.');
-        setLoading(false);
-        handleFirestoreError(error, OperationType.GET, `users/${auth.currentUser?.uid}`);
+    const userRef = ref(db, `users/${auth.currentUser.uid}`);
+    
+    const unsubscribe = onValue(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setUserData(snapshot.val());
+      } else {
+        setError('Данные пользователя не найдены');
       }
-    );
+      setLoading(false);
+    }, (error) => {
+      console.error('Realtime Database error:', error);
+      setError('Ошибка загрузки данных. Проверьте подключение к интернету.');
+      setLoading(false);
+    });
 
     return () => unsubscribe();
   }, [isOpen]);
@@ -54,6 +51,17 @@ export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
       case 'beta': return 'Beta Access';
       default: return 'Нет активной подписки';
     }
+  };
+
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'Неизвестно';
+    if (typeof timestamp === 'object' && timestamp?.seconds) {
+      return new Date(timestamp.seconds * 1000).toLocaleDateString();
+    }
+    if (typeof timestamp === 'number') {
+      return new Date(timestamp).toLocaleDateString();
+    }
+    return 'Неизвестно';
   };
 
   return (
@@ -138,7 +146,7 @@ export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
                     {userData?.subscription !== 'none' ? (
                       <div className="flex items-center gap-4">
                         <code className="flex-1 bg-black border border-white/10 rounded-xl p-4 font-mono text-sm text-zinc-300">
-                          {userData?.clientKey || 'Ожидание генерации ключа...'}
+                          {userData?.hwid || 'Не привязан'}
                         </code>
                       </div>
                     ) : (
@@ -158,7 +166,7 @@ export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
                     <div className="bg-zinc-950 border border-white/5 rounded-2xl p-4">
                       <p className="text-zinc-500 text-xs mb-1 flex items-center gap-1"><Clock className="w-3 h-3" /> Регистрация</p>
                       <p className="font-medium text-sm">
-                        {userData?.createdAt?.toDate().toLocaleDateString() || 'Неизвестно'}
+                        {formatDate(userData?.createdAt)}
                       </p>
                     </div>
                   </div>

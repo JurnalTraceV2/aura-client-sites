@@ -1,81 +1,68 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, AlertCircle, Copy, Check } from 'lucide-react';
-import { auth, createPendingPayment } from '../firebase';
+import { X, LogOut, Key, Shield, Clock, AlertCircle } from 'lucide-react';
+import { auth, db } from '../firebase';
+import { signOut } from 'firebase/auth';
+import { ref, onValue } from 'firebase/database';
 
-interface PaymentModalProps {
+interface DashboardModalProps {
   isOpen: boolean;
   onClose: () => void;
-  tier: string;
-  price: string;
 }
 
-export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps) {
-  const [loading, setLoading] = useState(false);
+export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<'choose' | 'details'>('choose');
-  const [method, setMethod] = useState<'card' | 'sbp' | 'crypto'>('card');
-  const [copied, setCopied] = useState(false);
-  const user = auth.currentUser;
 
-  // Реквизиты для оплаты (ЗАМЕНИ НА СВОИ)
-  const PAYMENT_DETAILS = {
-    card: '2200 1234 5678 9012',
-    sbp: '+7 999 123-45-67',
-    crypto: 'USDT (TRC20): TXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
-  };
-
-  const handleCreatePayment = async () => {
-    if (!user) {
-      alert('Сначала войдите в аккаунт');
-      onClose();
-      return;
-    }
+  useEffect(() => {
+    if (!isOpen || !auth.currentUser) return;
 
     setLoading(true);
     setError(null);
+
+    const userRef = ref(db, `users/${auth.currentUser.uid}`);
     
-    try {
-      const priceNum = parseInt(price);
-      
-      // Создаем запись о платеже в Firebase
-      const paymentId = await createPendingPayment(user.uid, priceNum, tier);
-      
-      if (!paymentId) {
-        throw new Error('Не удалось создать платеж');
+    const unsubscribe = onValue(userRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setUserData(snapshot.val());
+      } else {
+        setError('Данные пользователя не найдены');
       }
-      
-      // Переходим к показу реквизитов
-      setStep('details');
-      
-    } catch (err: any) {
-      console.error('Payment error:', err);
-      setError(err.message || 'Ошибка при создании платежа');
-    } finally {
       setLoading(false);
+    }, (error) => {
+      console.error('Realtime Database error:', error);
+      setError('Ошибка загрузки данных. Проверьте подключение к интернету.');
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [isOpen]);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    onClose();
+  };
+
+  const getSubscriptionName = (sub: string) => {
+    switch (sub) {
+      case '1_month': return '1 Месяц';
+      case 'lifetime': return 'Навсегда';
+      case 'beta': return 'Beta Access';
+      default: return 'Нет активной подписки';
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const getMethodDetails = () => {
-    switch (method) {
-      case 'card':
-        return { name: 'Банковская карта', details: PAYMENT_DETAILS.card, hint: 'Переведите сумму на карту' };
-      case 'sbp':
-        return { name: 'СБП', details: PAYMENT_DETAILS.sbp, hint: 'Переведите по номеру телефона' };
-      case 'crypto':
-        return { name: 'Криптовалюта', details: PAYMENT_DETAILS.crypto, hint: 'Переведите USDT (TRC20)' };
-      default:
-        return { name: '', details: '', hint: '' };
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'Неизвестно';
+    if (typeof timestamp === 'object' && timestamp?.seconds) {
+      return new Date(timestamp.seconds * 1000).toLocaleDateString();
     }
+    if (typeof timestamp === 'number') {
+      return new Date(timestamp).toLocaleDateString();
+    }
+    return 'Неизвестно';
   };
-
-  const methodDetails = getMethodDetails();
 
   return (
     <AnimatePresence>
@@ -93,7 +80,7 @@ export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl"
+            className="relative w-full max-w-2xl bg-zinc-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl"
           >
             <div className="p-8">
               <button 
@@ -103,115 +90,98 @@ export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps
                 <X className="w-6 h-6" />
               </button>
 
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center font-display font-black text-xl text-black">A</div>
-                <span className="font-display font-bold text-xl tracking-wider">AURA</span>
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center font-display font-black text-2xl text-black">A</div>
+                <div>
+                  <h2 className="text-3xl font-display font-bold">Личный кабинет</h2>
+                  <p className="text-zinc-400 text-sm">{auth.currentUser?.email}</p>
+                </div>
               </div>
 
-              {step === 'choose' ? (
-                <>
-                  <h2 className="text-2xl font-bold text-white mb-2">Оплата подписки</h2>
-                  <p className="text-zinc-400 mb-6">Тариф: <span className="text-purple-400">{tier}</span> • {price} ₽</p>
-                  
-                  {error && (
-                    <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 shrink-0" />
-                      {error}
-                    </div>
-                  )}
-                  
-                  <div className="bg-zinc-800 rounded-2xl p-4 mb-6">
-                    <p className="text-sm text-zinc-400 mb-3">Выберите способ оплаты:</p>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        onClick={() => setMethod('card')}
-                        className={`py-2 rounded-lg text-sm font-medium transition-all ${
-                          method === 'card' 
-                            ? 'bg-purple-600 text-white' 
-                            : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
-                        }`}
-                      >
-                        💳 Карта
-                      </button>
-                      <button
-                        onClick={() => setMethod('sbp')}
-                        className={`py-2 rounded-lg text-sm font-medium transition-all ${
-                          method === 'sbp' 
-                            ? 'bg-purple-600 text-white' 
-                            : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
-                        }`}
-                      >
-                        📱 СБП
-                      </button>
-                      <button
-                        onClick={() => setMethod('crypto')}
-                        className={`py-2 rounded-lg text-sm font-medium transition-all ${
-                          method === 'crypto' 
-                            ? 'bg-purple-600 text-white' 
-                            : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
-                        }`}
-                      >
-                        ₿ Крипта
-                      </button>
-                    </div>
+              {loading ? (
+                <div className="py-12 flex flex-col items-center gap-4">
+                  <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+                  <p className="text-zinc-500 text-sm">Загрузка данных...</p>
+                </div>
+              ) : error ? (
+                <div className="py-12 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <AlertCircle className="w-8 h-8 text-red-400" />
                   </div>
-                  
-                  <button
-                    onClick={handleCreatePayment}
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                  <p className="text-red-400 mb-4">{error}</p>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-purple-600 rounded-lg hover:bg-purple-700"
                   >
-                    {loading ? (
-                      <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Создание платежа...
-                      </>
-                    ) : (
-                      `Оплатить ${price} ₽`
-                    )}
+                    Перезагрузить
                   </button>
-                </>
+                </div>
               ) : (
-                <>
-                  <h2 className="text-2xl font-bold text-white mb-2">Реквизиты для оплаты</h2>
-                  <p className="text-zinc-400 mb-6">Сумма: <span className="text-2xl font-bold text-white">{price} ₽</span></p>
-                  
-                  <div className="bg-zinc-800 rounded-2xl p-6 mb-6">
-                    <p className="text-sm text-zinc-400 mb-2">{methodDetails.name}</p>
-                    <div className="flex items-center justify-between gap-3 bg-black/50 rounded-xl p-4 border border-white/10">
-                      <code className="font-mono text-sm text-white break-all flex-1">
-                        {methodDetails.details}
-                      </code>
-                      <button
-                        onClick={() => copyToClipboard(methodDetails.details)}
-                        className="p-2 hover:bg-white/10 rounded-lg transition-colors shrink-0"
-                      >
-                        {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-zinc-400" />}
-                      </button>
+                <div className="space-y-6">
+                  {/* Subscription Status */}
+                  <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl" />
+                    <div className="flex items-start justify-between relative z-10">
+                      <div>
+                        <p className="text-zinc-500 text-sm mb-1 flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
+                          Текущий статус
+                        </p>
+                        <h3 className="text-2xl font-bold text-white">
+                          {getSubscriptionName(userData?.subscription)}
+                        </h3>
+                      </div>
+                      <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${userData?.subscription !== 'none' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                        {userData?.subscription !== 'none' ? 'Активен' : 'Неактивен'}
+                      </div>
                     </div>
-                    <p className="text-xs text-zinc-500 mt-3">{methodDetails.hint}</p>
                   </div>
-                  
-                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 mb-6">
-                    <p className="text-yellow-400 text-sm font-medium mb-1">⚠️ Важно!</p>
-                    <p className="text-zinc-400 text-xs">После оплаты отправьте скриншот на <a href="mailto:sowingrim@mail.ru" className="text-blue-400">sowingrim@mail.ru</a> с темой "{tier}" и укажите ваш email. Подписка будет активирована вручную в течение 24 часов.</p>
+
+                  {/* Client Key */}
+                  <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6">
+                    <p className="text-zinc-500 text-sm mb-3 flex items-center gap-2">
+                      <Key className="w-4 h-4" />
+                      Ключ доступа (HWID)
+                    </p>
+                    {userData?.subscription !== 'none' ? (
+                      <div className="flex items-center gap-4">
+                        <code className="flex-1 bg-black border border-white/10 rounded-xl p-4 font-mono text-sm text-zinc-300">
+                          {userData?.hwid || 'Не привязан'}
+                        </code>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 text-zinc-500 bg-black/50 border border-white/5 rounded-xl p-4">
+                        <AlertCircle className="w-5 h-5" />
+                        <p className="text-sm">Приобретите подписку, чтобы получить ключ доступа.</p>
+                      </div>
+                    )}
                   </div>
-                  
-                  <button
-                    onClick={() => setStep('choose')}
-                    className="w-full py-3 rounded-xl bg-zinc-800 text-white font-medium hover:bg-zinc-700 transition-colors"
-                  >
-                    Назад
-                  </button>
-                </>
+
+                  {/* Role & Info */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-zinc-950 border border-white/5 rounded-2xl p-4">
+                      <p className="text-zinc-500 text-xs mb-1">Роль аккаунта</p>
+                      <p className="font-medium capitalize">{userData?.role || 'User'}</p>
+                    </div>
+                    <div className="bg-zinc-950 border border-white/5 rounded-2xl p-4">
+                      <p className="text-zinc-500 text-xs mb-1 flex items-center gap-1"><Clock className="w-3 h-3" /> Регистрация</p>
+                      <p className="font-medium text-sm">
+                        {formatDate(userData?.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               )}
-              
-              <button
-                onClick={onClose}
-                className="w-full mt-3 text-zinc-500 hover:text-white py-2 text-sm transition"
-              >
-                Закрыть
-              </button>
+
+              <div className="mt-8 pt-6 border-t border-white/10 flex justify-end">
+                <button 
+                  onClick={handleLogout}
+                  className="px-6 py-3 rounded-xl bg-red-500/10 text-red-500 font-medium hover:bg-red-500/20 transition-colors flex items-center gap-2"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Выйти из аккаунта
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>
