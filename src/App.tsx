@@ -110,7 +110,7 @@ export default function App() {
               </motion.div>
               
               <h1 className="text-6xl md:text-8xl font-display font-black tracking-tight mb-8 leading-[1.1]">
-                Доминируй в pvp с <br />
+                Доминируй в pvp <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-500 filter drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
                   AURA CLIENT
                 </span>
