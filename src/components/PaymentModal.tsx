@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, CreditCard, CheckCircle2, Loader2 } from 'lucide-react';
+// src/components/PaymentModal.tsx
+import { useState } from 'react';
 import { auth, createPendingPayment } from '../firebase';
 
 interface PaymentModalProps {
@@ -10,139 +9,107 @@ interface PaymentModalProps {
   price: string;
 }
 
-export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps) {
+export default function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps) {
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
+  const user = auth.currentUser;
+
+  // ТВОЙ API TOKEN ИЗ CRYPTOBOT
+  const CRYPTOBOT_TOKEN = '558239:AAXiteBh9epNMEQSXK4ixIbuBrJ9Qn1ROlF';
 
   const handlePayment = async () => {
-    if (!auth.currentUser) return;
-    setLoading(true);
-    setError('');
+    if (!user) {
+      alert('Сначала войдите в аккаунт');
+      onClose();
+      return;
+    }
 
+    setLoading(true);
+    
     try {
-      // Simulate payment gateway delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Создаем запись о платеже в Firebase
+      const paymentId = await createPendingPayment(user.uid, parseInt(price), tier);
       
-      // Create pending payment in database
-      const amount = parseInt(price.replace(/\D/g, ''));
-      const tierId = tier === '1 Месяц' ? '1_month' : tier === 'Навсегда' ? 'lifetime' : 'beta';
+      // Конвертируем рубли в USDT (примерно 1 USDT = 90 RUB)
+      const amountUSD = Math.ceil(parseInt(price) / 90);
       
-      await createPendingPayment(auth.currentUser.uid, amount, tierId);
+      // Создаем инвойс через API CryptoBot
+      const response = await fetch('https://pay.crypt.bot/api/createInvoice', {
+        method: 'POST',
+        headers: {
+          'Crypto-Pay-API-Token': CRYPTOBOT_TOKEN,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          asset: 'USDT',
+          amount: amountUSD,
+          description: `Подписка ${tier} для Aura Client`,
+          payload: paymentId,
+          paid_btn_name: 'callback',
+          paid_btn_url: 'https://aura-client-sites.vercel.app/success'
+        })
+      });
       
-      setSuccess(true);
-      setTimeout(() => {
-        setSuccess(false);
+      const data = await response.json();
+      
+      if (data.ok) {
+        // Открываем ссылку на оплату
+        window.open(data.result.bot_url, '_blank');
+        alert(`Оплатите ${amountUSD} USDT в Telegram. После оплаты подписка активируется автоматически.`);
         onClose();
-      }, 3000);
-    } catch (err: any) {
-      setError('Ошибка при создании платежа. Попробуйте позже.');
+      } else {
+        alert('Ошибка: ' + (data.error || 'Не удалось создать платеж'));
+      }
+      
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert('Ошибка при создании платежа. Попробуйте позже.');
     } finally {
       setLoading(false);
     }
   };
 
+  if (!isOpen) return null;
+
+  // Конвертируем рубли в USDT для отображения
+  const priceNum = parseInt(price);
+  const usdtAmount = Math.ceil(priceNum / 90);
+
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={!loading && !success ? onClose : undefined}
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-          />
-          
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-md bg-zinc-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl"
-          >
-            <div className="p-8">
-              {!loading && !success && (
-                <button 
-                  onClick={onClose}
-                  className="absolute top-6 right-6 text-zinc-400 hover:text-white transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              )}
-
-              {success ? (
-                <div className="text-center py-8">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6"
-                  >
-                    <CheckCircle2 className="w-10 h-10 text-green-500" />
-                  </motion.div>
-                  <h2 className="text-3xl font-display font-bold mb-4">Платеж создан!</h2>
-                  <p className="text-zinc-400">
-                    Ожидаем подтверждения от платежной системы. Подписка будет выдана автоматически.
-                  </p>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center">
-                      <CreditCard className="w-6 h-6 text-black" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-display font-bold">Оплата</h2>
-                      <p className="text-zinc-400 text-sm">Безопасный платеж</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6 mb-8">
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-zinc-400">Тариф</span>
-                      <span className="font-bold text-white">{tier}</span>
-                    </div>
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-zinc-400">Email</span>
-                      <span className="font-medium text-zinc-300">{auth.currentUser?.email}</span>
-                    </div>
-                    <div className="w-full h-px bg-white/10 my-4" />
-                    <div className="flex justify-between items-center">
-                      <span className="text-zinc-400">К оплате</span>
-                      <span className="text-3xl font-display font-black text-white">{price}</span>
-                    </div>
-                  </div>
-
-                  {error && (
-                    <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                      {error}
-                    </div>
-                  )}
-
-                  <button 
-                    onClick={handlePayment}
-                    disabled={loading}
-                    className="w-full py-4 rounded-xl bg-white text-black font-bold text-lg hover:bg-zinc-200 transition-colors flex items-center justify-center gap-3 disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Обработка...
-                      </>
-                    ) : (
-                      <>
-                        Перейти к оплате
-                      </>
-                    )}
-                  </button>
-                  <p className="text-center text-zinc-500 text-xs mt-4">
-                    Нажимая кнопку, вы соглашаетесь с правилами сервиса (TOS).
-                  </p>
-                </>
-              )}
-            </div>
-          </motion.div>
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8 max-w-md w-full mx-4">
+        <h2 className="text-2xl font-bold text-white mb-4">Оплата подписки</h2>
+        <p className="text-gray-300 mb-2">Тариф: <span className="text-purple-400">{tier}</span></p>
+        <p className="text-gray-300 mb-2">Сумма: <span className="text-2xl font-bold text-white">{price} ₽</span></p>
+        <p className="text-gray-400 text-sm mb-6">≈ {usdtAmount} USDT</p>
+        
+        <div className="bg-gray-800 rounded-lg p-4 mb-6">
+          <p className="text-sm text-gray-400 mb-2">Способ оплаты:</p>
+          <div className="flex items-center gap-3">
+            <span className="text-xl">₿</span>
+            <span className="text-white">USDT (TRC20) через Telegram</span>
+          </div>
+          <p className="text-xs text-gray-500 mt-2 mt-3">После оплаты подписка активируется автоматически</p>
         </div>
-      )}
-    </AnimatePresence>
+        
+        <button
+          onClick={handlePayment}
+          disabled={loading}
+          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 rounded-xl transition-all duration-200 disabled:opacity-50"
+        >
+          {loading ? 'Создание платежа...' : `Оплатить ${usdtAmount} USDT`}
+        </button>
+        
+        <button
+          onClick={onClose}
+          className="w-full mt-3 text-gray-400 hover:text-white py-2 transition"
+        >
+          Отмена
+        </button>
+        
+        <p className="text-center text-xs text-gray-500 mt-4">
+          Вопросы: <a href="mailto:sowingrim@mail.ru" className="text-blue-400">sowingrim@mail.ru</a>
+        </p>
+      </div>
+    </div>
   );
 }
