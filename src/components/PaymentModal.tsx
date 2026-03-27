@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, AlertCircle } from 'lucide-react';
-import { auth, db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { X, AlertCircle, Copy, Check } from 'lucide-react';
+import { auth, createPendingPayment } from '../firebase';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -14,29 +13,19 @@ interface PaymentModalProps {
 export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<'choose' | 'details'>('choose');
+  const [method, setMethod] = useState<'card' | 'sbp' | 'crypto'>('card');
+  const [copied, setCopied] = useState(false);
   const user = auth.currentUser;
 
-  const CRYPTOBOT_TOKEN = '558239:AAXiteBh9epNMEQSXK4ixIbuBrJ9Qn1ROlF';
-
-  // Функция создания платежа в Firebase
-  const createPendingPayment = async (userId: string, amount: number, tierId: string) => {
-    try {
-      const docRef = await addDoc(collection(db, 'payments'), {
-        userId,
-        amount,
-        tier: tierId,
-        status: 'pending',
-        createdAt: serverTimestamp()
-      });
-      console.log('✅ Платеж создан в Firebase:', docRef.id);
-      return docRef.id;
-    } catch (error) {
-      console.error('❌ Ошибка создания платежа в Firebase:', error);
-      throw error;
-    }
+  // Реквизиты для оплаты (ЗАМЕНИ НА СВОИ)
+  const PAYMENT_DETAILS = {
+    card: '2200 1234 5678 9012',
+    sbp: '+7 999 123-45-67',
+    crypto: 'USDT (TRC20): TXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
   };
 
-  const handlePayment = async () => {
+  const handleCreatePayment = async () => {
     if (!user) {
       alert('Сначала войдите в аккаунт');
       onClose();
@@ -48,57 +37,45 @@ export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps
     
     try {
       const priceNum = parseInt(price);
-      const amountUSD = Math.ceil(priceNum / 90);
-      
-      console.log('💰 Создаем платеж для:', user.email, 'Сумма:', amountUSD, 'USDT');
       
       // Создаем запись о платеже в Firebase
       const paymentId = await createPendingPayment(user.uid, priceNum, tier);
       
       if (!paymentId) {
-        throw new Error('Не удалось создать платеж в базе данных');
+        throw new Error('Не удалось создать платеж');
       }
       
-      console.log('📝 Payment ID:', paymentId);
-      
-      // Создаем инвойс в CryptoBot
-      const response = await fetch('https://pay.crypt.bot/api/createInvoice', {
-        method: 'POST',
-        headers: {
-          'Crypto-Pay-API-Token': CRYPTOBOT_TOKEN,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          asset: 'USDT',
-          amount: amountUSD,
-          description: `Подписка ${tier} для ${user.email}`,
-          payload: paymentId,
-          paid_btn_name: 'callback',
-          paid_btn_url: 'https://aura-client-sites.vercel.app/success'
-        })
-      });
-      
-      const data = await response.json();
-      console.log('🤖 Ответ CryptoBot:', data);
-      
-      if (data.ok && data.result?.bot_url) {
-        window.open(data.result.bot_url, '_blank');
-        alert(`Ссылка на оплату открыта в Telegram!\nСумма: ${amountUSD} USDT\nПосле оплаты подписка активируется автоматически.`);
-        onClose();
-      } else {
-        throw new Error(data.error || 'Ошибка создания платежа в CryptoBot');
-      }
+      // Переходим к показу реквизитов
+      setStep('details');
       
     } catch (err: any) {
-      console.error('❌ Payment error:', err);
-      setError(err.message || 'Ошибка при создании платежа. Попробуйте позже.');
+      console.error('Payment error:', err);
+      setError(err.message || 'Ошибка при создании платежа');
     } finally {
       setLoading(false);
     }
   };
 
-  const priceNum = parseInt(price);
-  const usdtAmount = Math.ceil(priceNum / 90);
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const getMethodDetails = () => {
+    switch (method) {
+      case 'card':
+        return { name: 'Банковская карта', details: PAYMENT_DETAILS.card, hint: 'Переведите сумму на карту' };
+      case 'sbp':
+        return { name: 'СБП', details: PAYMENT_DETAILS.sbp, hint: 'Переведите по номеру телефона' };
+      case 'crypto':
+        return { name: 'Криптовалюта', details: PAYMENT_DETAILS.crypto, hint: 'Переведите USDT (TRC20)' };
+      default:
+        return { name: '', details: '', hint: '' };
+    }
+  };
+
+  const methodDetails = getMethodDetails();
 
   return (
     <AnimatePresence>
@@ -126,53 +103,115 @@ export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps
                 <X className="w-6 h-6" />
               </button>
 
-              <h2 className="text-2xl font-bold text-white mb-2">Оплата подписки</h2>
-              <p className="text-zinc-400 mb-6">Тариф: <span className="text-purple-400">{tier}</span> • {price} ₽</p>
-              
-              {error && (
-                <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  {error}
-                </div>
-              )}
-              
-              <div className="bg-zinc-800 rounded-2xl p-6 mb-6">
-                <p className="text-sm text-zinc-400 mb-2">Способ оплаты:</p>
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="text-2xl">₿</span>
-                  <span className="text-white font-medium">USDT (TRC20) через Telegram</span>
-                </div>
-                <div className="border-t border-zinc-700 pt-4">
-                  <p className="text-sm text-zinc-400">К оплате: <span className="text-white font-bold text-lg">{usdtAmount} USDT</span></p>
-                  <p className="text-xs text-zinc-500 mt-1">Курс: ~1 USDT = 90 RUB</p>
-                </div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center font-display font-black text-xl text-black">A</div>
+                <span className="font-display font-bold text-xl tracking-wider">AURA</span>
               </div>
-              
-              <button
-                onClick={handlePayment}
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Создание платежа...
-                  </>
-                ) : (
-                  `Оплатить ${usdtAmount} USDT`
-                )}
-              </button>
+
+              {step === 'choose' ? (
+                <>
+                  <h2 className="text-2xl font-bold text-white mb-2">Оплата подписки</h2>
+                  <p className="text-zinc-400 mb-6">Тариф: <span className="text-purple-400">{tier}</span> • {price} ₽</p>
+                  
+                  {error && (
+                    <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      {error}
+                    </div>
+                  )}
+                  
+                  <div className="bg-zinc-800 rounded-2xl p-4 mb-6">
+                    <p className="text-sm text-zinc-400 mb-3">Выберите способ оплаты:</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={() => setMethod('card')}
+                        className={`py-2 rounded-lg text-sm font-medium transition-all ${
+                          method === 'card' 
+                            ? 'bg-purple-600 text-white' 
+                            : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
+                        }`}
+                      >
+                        💳 Карта
+                      </button>
+                      <button
+                        onClick={() => setMethod('sbp')}
+                        className={`py-2 rounded-lg text-sm font-medium transition-all ${
+                          method === 'sbp' 
+                            ? 'bg-purple-600 text-white' 
+                            : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
+                        }`}
+                      >
+                        📱 СБП
+                      </button>
+                      <button
+                        onClick={() => setMethod('crypto')}
+                        className={`py-2 rounded-lg text-sm font-medium transition-all ${
+                          method === 'crypto' 
+                            ? 'bg-purple-600 text-white' 
+                            : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600'
+                        }`}
+                      >
+                        ₿ Крипта
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={handleCreatePayment}
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-4 rounded-xl transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Создание платежа...
+                      </>
+                    ) : (
+                      `Оплатить ${price} ₽`
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-2xl font-bold text-white mb-2">Реквизиты для оплаты</h2>
+                  <p className="text-zinc-400 mb-6">Сумма: <span className="text-2xl font-bold text-white">{price} ₽</span></p>
+                  
+                  <div className="bg-zinc-800 rounded-2xl p-6 mb-6">
+                    <p className="text-sm text-zinc-400 mb-2">{methodDetails.name}</p>
+                    <div className="flex items-center justify-between gap-3 bg-black/50 rounded-xl p-4 border border-white/10">
+                      <code className="font-mono text-sm text-white break-all flex-1">
+                        {methodDetails.details}
+                      </code>
+                      <button
+                        onClick={() => copyToClipboard(methodDetails.details)}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors shrink-0"
+                      >
+                        {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-zinc-400" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-zinc-500 mt-3">{methodDetails.hint}</p>
+                  </div>
+                  
+                  <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 mb-6">
+                    <p className="text-yellow-400 text-sm font-medium mb-1">⚠️ Важно!</p>
+                    <p className="text-zinc-400 text-xs">После оплаты отправьте скриншот на <a href="mailto:sowingrim@mail.ru" className="text-blue-400">sowingrim@mail.ru</a> с темой "{tier}" и укажите ваш email. Подписка будет активирована вручную в течение 24 часов.</p>
+                  </div>
+                  
+                  <button
+                    onClick={() => setStep('choose')}
+                    className="w-full py-3 rounded-xl bg-zinc-800 text-white font-medium hover:bg-zinc-700 transition-colors"
+                  >
+                    Назад
+                  </button>
+                </>
+              )}
               
               <button
                 onClick={onClose}
-                className="w-full mt-3 text-zinc-400 hover:text-white py-3 transition"
+                className="w-full mt-3 text-zinc-500 hover:text-white py-2 text-sm transition"
               >
-                Отмена
+                Закрыть
               </button>
-              
-              <p className="text-center text-xs text-zinc-500 mt-4">
-                Вопросы: <a href="mailto:sowingrim@mail.ru" className="text-blue-400">sowingrim@mail.ru</a>
-              </p>
             </div>
           </motion.div>
         </div>
