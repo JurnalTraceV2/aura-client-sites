@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, AlertCircle } from 'lucide-react';
-import { auth, createPendingPayment } from '../firebase';
+import { auth, db } from '../firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -17,6 +18,24 @@ export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps
 
   const CRYPTOBOT_TOKEN = '558239:AAXiteBh9epNMEQSXK4ixIbuBrJ9Qn1ROlF';
 
+  // Функция создания платежа в Firebase
+  const createPendingPayment = async (userId: string, amount: number, tierId: string) => {
+    try {
+      const docRef = await addDoc(collection(db, 'payments'), {
+        userId,
+        amount,
+        tier: tierId,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
+      console.log('✅ Платеж создан в Firebase:', docRef.id);
+      return docRef.id;
+    } catch (error) {
+      console.error('❌ Ошибка создания платежа в Firebase:', error);
+      throw error;
+    }
+  };
+
   const handlePayment = async () => {
     if (!user) {
       alert('Сначала войдите в аккаунт');
@@ -28,14 +47,19 @@ export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps
     setError(null);
     
     try {
-      const amountUSD = Math.ceil(parseInt(price) / 90);
+      const priceNum = parseInt(price);
+      const amountUSD = Math.ceil(priceNum / 90);
+      
+      console.log('💰 Создаем платеж для:', user.email, 'Сумма:', amountUSD, 'USDT');
       
       // Создаем запись о платеже в Firebase
-      const paymentId = await createPendingPayment(user.uid, parseInt(price), tier);
+      const paymentId = await createPendingPayment(user.uid, priceNum, tier);
       
       if (!paymentId) {
-        throw new Error('Не удалось создать платеж');
+        throw new Error('Не удалось создать платеж в базе данных');
       }
+      
+      console.log('📝 Payment ID:', paymentId);
       
       // Создаем инвойс в CryptoBot
       const response = await fetch('https://pay.crypt.bot/api/createInvoice', {
@@ -47,7 +71,7 @@ export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps
         body: JSON.stringify({
           asset: 'USDT',
           amount: amountUSD,
-          description: `Подписка ${tier} для Aura Client`,
+          description: `Подписка ${tier} для ${user.email}`,
           payload: paymentId,
           paid_btn_name: 'callback',
           paid_btn_url: 'https://aura-client-sites.vercel.app/success'
@@ -55,18 +79,19 @@ export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps
       });
       
       const data = await response.json();
+      console.log('🤖 Ответ CryptoBot:', data);
       
       if (data.ok && data.result?.bot_url) {
         window.open(data.result.bot_url, '_blank');
-        alert(`Оплатите ${amountUSD} USDT в Telegram. После оплаты подписка активируется.`);
+        alert(`Ссылка на оплату открыта в Telegram!\nСумма: ${amountUSD} USDT\nПосле оплаты подписка активируется автоматически.`);
         onClose();
       } else {
-        throw new Error(data.error || 'Ошибка создания платежа');
+        throw new Error(data.error || 'Ошибка создания платежа в CryptoBot');
       }
       
     } catch (err: any) {
-      console.error('Payment error:', err);
-      setError(err.message || 'Ошибка при создании платежа');
+      console.error('❌ Payment error:', err);
+      setError(err.message || 'Ошибка при создании платежа. Попробуйте позже.');
     } finally {
       setLoading(false);
     }
