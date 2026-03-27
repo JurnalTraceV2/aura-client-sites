@@ -118,7 +118,6 @@ export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {/* Subscription Status */}
                   <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6 relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-3xl" />
                     <div className="flex items-start justify-between relative z-10">
@@ -137,7 +136,6 @@ export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
                     </div>
                   </div>
 
-                  {/* Client Key */}
                   <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6">
                     <p className="text-zinc-500 text-sm mb-3 flex items-center gap-2">
                       <Key className="w-4 h-4" />
@@ -157,7 +155,6 @@ export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
                     )}
                   </div>
 
-                  {/* Role & Info */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-zinc-950 border border-white/5 rounded-2xl p-4">
                       <p className="text-zinc-500 text-xs mb-1">Роль аккаунта</p>
@@ -165,9 +162,7 @@ export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
                     </div>
                     <div className="bg-zinc-950 border border-white/5 rounded-2xl p-4">
                       <p className="text-zinc-500 text-xs mb-1 flex items-center gap-1"><Clock className="w-3 h-3" /> Регистрация</p>
-                      <p className="font-medium text-sm">
-                        {formatDate(userData?.createdAt)}
-                      </p>
+                      <p className="font-medium text-sm">{formatDate(userData?.createdAt)}</p>
                     </div>
                   </div>
                 </div>

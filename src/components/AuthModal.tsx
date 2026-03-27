@@ -29,7 +29,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         userCredential = await createUserWithEmailAndPassword(auth, email, password);
       }
       await ensureUserDocument(userCredential.user);
-      onClose(); // Закрываем модалку
+      onClose();
     } catch (err: any) {
       setError(err.message || 'Ошибка авторизации');
     } finally {
@@ -43,7 +43,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     try {
       const result = await signInWithPopup(auth, googleProvider);
       await ensureUserDocument(result.user);
-      onClose(); // Закрываем модалку после успешного входа
+      onClose();
     } catch (err: any) {
       setError(err.message || 'Ошибка авторизации через Google');
     } finally {
