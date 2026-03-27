@@ -13,19 +13,28 @@ interface DashboardModalProps {
 export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen || !auth.currentUser) return;
+
+    setLoading(true);
+    setError(null);
 
     const unsubscribe = onSnapshot(
       doc(db, 'users', auth.currentUser.uid),
       (docSnap) => {
         if (docSnap.exists()) {
           setUserData(docSnap.data());
+        } else {
+          setError('Данные пользователя не найдены');
         }
         setLoading(false);
       },
       (error) => {
+        console.error('Firestore error:', error);
+        setError('Ошибка загрузки данных. Проверьте подключение к интернету.');
+        setLoading(false);
         handleFirestoreError(error, OperationType.GET, `users/${auth.currentUser?.uid}`);
       }
     );
@@ -82,8 +91,22 @@ export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
               </div>
 
               {loading ? (
-                <div className="py-12 flex justify-center">
+                <div className="py-12 flex flex-col items-center gap-4">
                   <div className="w-8 h-8 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+                  <p className="text-zinc-500 text-sm">Загрузка данных...</p>
+                </div>
+              ) : error ? (
+                <div className="py-12 text-center">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+                    <AlertCircle className="w-8 h-8 text-red-400" />
+                  </div>
+                  <p className="text-red-400 mb-4">{error}</p>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-purple-600 rounded-lg hover:bg-purple-700"
+                  >
+                    Перезагрузить
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-6">
