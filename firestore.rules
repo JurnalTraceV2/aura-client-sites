@@ -1,0 +1,128 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId} (matches auth.uid)
+    // Fields:
+    //   - email: string (required) - User's email address
+    //   - role: string (required) - 'user' or 'admin'
+    //   - subscription: string (required) - 'none', '1_month', 'lifetime', 'beta'
+    //   - clientKey: string (optional) - Unique license key
+    //   - createdAt: timestamp (required) - Creation time
+    //
+    // Collection: payments
+    // Document ID: auto-generated
+    // Fields:
+    //   - userId: string (required) - matches auth.uid
+    //   - amount: number (required) - Payment amount
+    //   - tier: string (required) - '1_month', 'lifetime', 'beta'
+    //   - status: string (required) - 'pending', 'completed', 'failed'
+    //   - createdAt: timestamp (required) - Creation time
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "brawlbosssowin@gmail.com" && request.auth.token.email_verified == true)); 
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function hasOnlyAllowedFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
+    }
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      let allowedRoles = ['user', 'admin'];
+      let allowedSubs = ['none', '1_month', 'lifetime', 'beta'];
+      
+      return hasOnlyAllowedFields(['email', 'role', 'subscription', 'clientKey', 'createdAt']) &&
+             data.email is string && isValidEmail(data.email) && data.email.size() < 100 &&
+             data.role in allowedRoles &&
+             data.subscription in allowedSubs &&
+             data.createdAt is timestamp &&
+             (!('clientKey' in data) || (data.clientKey is string && data.clientKey.size() < 100));
+    }
+
+    function isValidPayment(data) {
+      let allowedTiers = ['1_month', 'lifetime', 'beta'];
+      let allowedStatuses = ['pending', 'completed', 'failed'];
+      
+      return hasOnlyAllowedFields(['userId', 'amount', 'tier', 'status', 'createdAt']) &&
+             data.userId is string && data.userId == request.auth.uid &&
+             data.amount is number && data.amount > 0 &&
+             data.tier in allowedTiers &&
+             data.status in allowedStatuses &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      // Users can read their own profile. Admins can read all.
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Users can create their profile. They cannot create an admin role unless they are already an admin.
+      allow create: if isAuthenticated() && 
+                    isOwner(userId) && 
+                    isValidUser(request.resource.data) && 
+                    (request.resource.data.role == 'user' || isAdmin()) &&
+                    request.resource.data.subscription == 'none';
+
+      // Users can update their profile, but cannot change their role, subscription, or clientKey.
+      allow update: if isAuthenticated() && 
+                    isValidUser(request.resource.data) && 
+                    ((isOwner(userId) && areImmutableFieldsUnchanged(['role', 'subscription', 'clientKey'])) || isAdmin());
+                    
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+
+    match /payments/{paymentId} {
+      // Users can read their own payments. Admins can read all.
+      allow read: if (isAuthenticated() && resource.data.userId == request.auth.uid) || isAdmin();
+
+      // Users can create a pending payment.
+      allow create: if isAuthenticated() && 
+                    isValidPayment(request.resource.data) && 
+                    request.resource.data.status == 'pending'; // Only pending payments can be created by users
+
+      // Users cannot update payments (this should be done by a backend webhook). Admins can update.
+      allow update: if isAdmin() && isValidPayment(request.resource.data);
+      
+      // No one can delete payments (audit trail)
+      allow delete: if false;
+    }
+  }
+}

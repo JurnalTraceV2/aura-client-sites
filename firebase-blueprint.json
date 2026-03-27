@@ -1,0 +1,81 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile containing subscription and client key information.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User's email address"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["user", "admin"],
+          "description": "User's role for RBAC"
+        },
+        "subscription": {
+          "type": "string",
+          "enum": ["none", "1_month", "lifetime", "beta"],
+          "description": "Active subscription tier"
+        },
+        "clientKey": {
+          "type": "string",
+          "description": "Unique license key for the Aura Client"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Account creation timestamp"
+        }
+      },
+      "required": ["email", "role", "subscription", "createdAt"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Record of a payment attempt or success.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "ID of the user making the payment"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Payment amount in RUB"
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["1_month", "lifetime", "beta"],
+          "description": "Subscription tier purchased"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "completed", "failed"],
+          "description": "Payment status"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Payment creation timestamp"
+        }
+      },
+      "required": ["userId", "amount", "tier", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Stores user profiles and their active subscriptions."
+    },
+    "payments/{paymentId}": {
+      "schema": {
+        "$ref": "#/entities/Payment"
+      },
+      "description": "Stores payment transactions."
+    }
+  }
+}
