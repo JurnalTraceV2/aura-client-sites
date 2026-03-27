@@ -87,15 +87,12 @@ export default function App() {
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 px-6 overflow-hidden min-h-screen flex items-center">
-        {/* Background Effects */}
         <div className="absolute inset-0 bg-grid-pattern opacity-50" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.08),transparent_60%)]" />
         <div className="absolute top-1/4 left-0 w-96 h-96 bg-white/5 rounded-full blur-[120px]" />
         
         <div className="max-w-7xl mx-auto relative z-10 w-full">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-16">
-            
-            {/* Left Content */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
@@ -142,34 +139,26 @@ export default function App() {
               </div>
             </motion.div>
 
-            {/* Right Logo Area - Enhanced Premium "A" */}
             <motion.div 
               initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
               animate={{ opacity: 1, scale: 1, rotate: 0 }}
               transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
               className="flex-1 flex justify-center relative w-full max-w-lg"
             >
-              {/* Massive background glow */}
               <div className="absolute inset-0 bg-white/10 blur-[120px] rounded-full" />
-              
               <motion.div 
                 animate={{ y: [-15, 15, -15] }}
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 className="relative z-10 w-full aspect-square rounded-[3rem] bg-gradient-to-br from-zinc-900/80 to-black/80 border border-white/10 flex items-center justify-center shadow-[0_0_80px_rgba(255,255,255,0.05)] overflow-hidden backdrop-blur-2xl"
               >
-                {/* Animated Glass Cubes inside the logo box */}
                 <div className="absolute inset-0 opacity-40">
                   <motion.div animate={{ rotate: 360, y: [-20, 20, -20] }} transition={{ duration: 20, repeat: Infinity, ease: "linear" }} className="absolute top-10 left-10 w-24 h-24 bg-gradient-to-br from-white/10 to-transparent border border-white/20 backdrop-blur-md rounded-2xl" />
                   <motion.div animate={{ rotate: -360, x: [-20, 20, -20] }} transition={{ duration: 25, repeat: Infinity, ease: "linear" }} className="absolute bottom-16 right-12 w-32 h-32 bg-gradient-to-tl from-white/5 to-transparent border border-white/10 backdrop-blur-md rounded-3xl" />
                 </div>
-
-                {/* The "A" Logo - Layered for premium stroke effect */}
                 <div className="relative z-20 flex items-center justify-center">
-                  {/* Outer Glow / Stroke */}
                   <span className="absolute text-[16rem] font-display font-black text-transparent" style={{ WebkitTextStroke: '3px rgba(255,255,255,0.6)', filter: 'drop-shadow(0 0 50px rgba(255,255,255,0.4))' }}>
                     A
                   </span>
-                  {/* Inner Fill */}
                   <span className="text-[16rem] font-display font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-zinc-200 to-zinc-600 relative z-30">
                     A
                   </span>
@@ -183,7 +172,6 @@ export default function App() {
       {/* Features Grid */}
       <section id="features" className="py-32 px-6 bg-zinc-950 relative">
         <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        
         <div className="max-w-7xl mx-auto">
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -279,7 +267,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* Footer - ИСПРАВЛЕННЫЙ */}
       <footer className="border-t border-white/10 bg-zinc-950 py-12 px-6 relative z-10">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
@@ -289,13 +277,10 @@ export default function App() {
           <p className="text-zinc-500 text-sm">
             © 2026 Aura Client. Не является официальным продуктом Minecraft.
           </p>
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="flex gap-3">
-              <FooterSocial href="https://discord.gg/9XYURMb5" icon={<DiscordIcon />} text="Discord" hoverClass="hover:bg-[#5865F2] hover:border-[#5865F2] hover:text-white" />
-              <FooterSocial href="https://t.me/WetrixClient" icon={<TelegramIcon />} text="Telegram" hoverClass="hover:bg-[#2AABEE] hover:border-[#2AABEE] hover:text-white" />
-              <FooterSocial href="https://www.youtube.com/@turbingecho" icon={<Youtube className="w-4 h-4" />} text="YouTube" hoverClass="hover:bg-[#FF0000] hover:border-[#FF0000] hover:text-white" />
-            </div>
-            <a href="#" className="text-sm text-zinc-500 hover:text-white transition-colors">Пользовательское соглашение</a>
+          <div className="flex flex-wrap items-center justify-center gap-4">
+            <a href="/offer" className="text-sm text-zinc-500 hover:text-white transition-colors">Публичная оферта</a>
+            <a href="/privacy" className="text-sm text-zinc-500 hover:text-white transition-colors">Политика конфиденциальности</a>
+            <a href="/contacts" className="text-sm text-zinc-500 hover:text-white transition-colors">Контакты</a>
           </div>
         </div>
       </footer>
@@ -377,20 +362,6 @@ function SocialIcon({ href, icon, hoverColor }: { href: string, icon: React.Reac
       className={`w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 transition-all duration-300 ${hoverColor}`}
     >
       {icon}
-    </a>
-  );
-}
-
-function FooterSocial({ href, icon, text, hoverClass }: { href: string, icon: React.ReactNode, text: string, hoverClass: string }) {
-  return (
-    <a 
-      href={href} 
-      target="_blank" 
-      rel="noopener noreferrer"
-      className={`px-4 py-2 rounded-xl bg-zinc-900 border border-white/5 flex items-center gap-2 text-zinc-400 text-sm font-medium transition-all duration-300 ${hoverClass}`}
-    >
-      {icon}
-      {text}
     </a>
   );
 }
