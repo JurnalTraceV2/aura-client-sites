@@ -1,8 +1,21 @@
 // api/hwid-check.js
-// Эндпоинт для проверки HWID: https://aura-client-sites.vercel.app/api/hwid-check
+import { initializeApp } from 'firebase/app';
+import { getDatabase, ref, get, update } from 'firebase/database';
 
-import { ref, get, update } from 'firebase/database';
-import { db } from '../../src/firebase'; // Или как у тебя импортируется
+// Firebase конфиг (КОПИРУЙ ИЗ ТВОЕГО firebase.ts)
+const firebaseConfig = {
+  apiKey: "AIzaSyAaz1Sat0zPHZdeUESxkV8lNEtUJE7EEPA",
+  authDomain: "gen-lang-client-0640974949.firebaseapp.com",
+  projectId: "gen-lang-client-0640974949",
+  storageBucket: "gen-lang-client-0640974949.firebasestorage.app",
+  messagingSenderId: "90325346449",
+  appId: "1:90325346449:web:86b3b2f10f9bc94155f730",
+  databaseURL: "https://gen-lang-client-0640974949-default-rtdb.firebaseio.com"
+};
+
+// Инициализируем Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
 export default async function handler(req, res) {
   // Разрешаем только POST
@@ -22,8 +35,6 @@ export default async function handler(req, res) {
   console.log(`🔍 Проверка HWID: ${hwid}, Username: ${username}`);
 
   try {
-    // Ищем пользователя по email (или создаем отдельную коллекцию по HWID)
-    // Здесь упрощенно: ищем в users по HWID
     const usersRef = ref(db, 'users');
     const snapshot = await get(usersRef);
     
@@ -40,25 +51,22 @@ export default async function handler(req, res) {
     });
     
     if (!userFound) {
-      // HWID не найден — доступ запрещен
       return res.status(200).json({
         allowed: false,
         message: '❌ Лицензия не найдена. Приобретите доступ на сайте.'
       });
     }
     
-    // Проверяем подписку
     const subscription = userFound.subscription;
-    const isActive = subscription !== 'none';
+    const isActive = subscription !== 'none' && subscription !== null;
     
     if (!isActive) {
       return res.status(200).json({
         allowed: false,
-        message: '⛔ Подписка истекла или неактивна. Продлите на сайте.'
+        message: '⛔ Подписка неактивна. Продлите на сайте.'
       });
     }
     
-    // Проверяем, не заблокирован ли пользователь
     if (userFound.banned === true) {
       return res.status(200).json({
         allowed: false,
@@ -66,7 +74,6 @@ export default async function handler(req, res) {
       });
     }
     
-    // ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ — ДОСТУП РАЗРЕШЕН
     console.log(`✅ Доступ разрешен для HWID: ${hwid}`);
     
     return res.status(200).json({
