@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, LogOut, Key, Shield, Clock, AlertCircle } from 'lucide-react';
+import { X, LogOut, Key, Shield, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { ref, onValue } from 'firebase/database';
@@ -8,9 +8,10 @@ import { ref, onValue } from 'firebase/database';
 interface DashboardModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onResetHwid?: () => void; // Добавляем пропс для сброса HWID
 }
 
-export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
+export function DashboardModal({ isOpen, onClose, onResetHwid }: DashboardModalProps) {
   const [userData, setUserData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +63,15 @@ export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
       return new Date(timestamp).toLocaleDateString();
     }
     return 'Неизвестно';
+  };
+
+  const handleResetClick = () => {
+    if (window.confirm('Сброс HWID стоит 499₽. Перейти к оплате?')) {
+      if (onResetHwid) {
+        onResetHwid();
+        onClose();
+      }
+    }
   };
 
   return (
@@ -146,6 +156,15 @@ export function DashboardModal({ isOpen, onClose }: DashboardModalProps) {
                         <code className="flex-1 bg-black border border-white/10 rounded-xl p-4 font-mono text-sm text-zinc-300">
                           {userData?.hwid || 'Не привязан'}
                         </code>
+                        {userData?.hwid && (
+                          <button
+                            onClick={handleResetClick}
+                            className="px-4 py-2 rounded-xl bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors flex items-center gap-2 text-sm"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            Сбросить (499 ₽)
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-3 text-zinc-500 bg-black/50 border border-white/5 rounded-xl p-4">

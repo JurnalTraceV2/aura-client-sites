@@ -240,7 +240,7 @@ export default function App() {
             <p className="text-xl text-zinc-400 max-w-2xl mx-auto">Моментальная выдача после оплаты. Автоматические обновления.</p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto items-stretch">
             <PricingCard 
               delay={0.1}
               title="1 Месяц"
@@ -262,6 +262,13 @@ export default function App() {
               price="1290₽"
               features={['Ранний доступ к обходам', 'Эксклюзивные функции', 'Прямая связь с кодером', 'Уникальная Beta роль', 'Влияние на разработку']}
               onBuy={() => handleBuyClick('Бета', '1290₽')}
+            />
+            <PricingCard 
+              delay={0.4}
+              title="Сброс HWID"
+              price="499₽"
+              features={['Сброс привязки к ПК', 'Безлимитная активация', 'Одноразовая услуга', 'Подходит для всех тарифов']}
+              onBuy={() => handleBuyClick('Сброс HWID', '499₽')}
             />
           </div>
         </div>
