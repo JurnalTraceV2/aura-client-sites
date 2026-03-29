@@ -2,7 +2,7 @@ import { get, ref } from 'firebase/database';
 import { db } from '../../_lib/firebase.js';
 import { verifyRequestAuth } from '../../_lib/auth.js';
 import { getArtifactConfig } from '../../_lib/artifacts.js';
-import { forbidden, getRequestBaseUrl, methodNotAllowed, serverError, unauthorized } from '../../_lib/http.js';
+import { forbidden, getRequestBaseUrl, methodNotAllowed, unauthorized } from '../../_lib/http.js';
 import { getSubscriptionState, writeAuditLog } from '../../_lib/license.js';
 
 const LAUNCHER_LINK_TTL_MS = Number(process.env.LAUNCHER_LINK_TTL_MS || 5 * 60 * 1000);
@@ -52,6 +52,10 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('account/download/launcher-url error:', error);
-    return serverError(res, 'Internal server error.', error?.message);
+    return res.status(503).json({
+      ok: false,
+      error: 'Launcher download temporarily unavailable.',
+      details: error?.message || 'Unknown internal error.'
+    });
   }
 }

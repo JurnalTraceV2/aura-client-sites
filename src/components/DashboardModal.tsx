@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, LogOut, Key, Shield, Clock, AlertCircle, RefreshCw, Download, Loader2 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
-import { auth, fetchAccountProfile, requestLauncherDownloadLink } from '../firebase';
+import { auth, fetchAccountProfile } from '../firebase';
 
 interface DashboardModalProps {
   isOpen: boolean;
@@ -31,6 +31,15 @@ interface AccountProfile {
   hwidHash: string | null;
   payments: AccountPayment[];
 }
+
+const LAUNCHER_VERSION = String(import.meta.env.VITE_LAUNCHER_VERSION || 'mega-webview-x64-20260329');
+const LAUNCHER_SHA256 = String(
+  import.meta.env.VITE_LAUNCHER_SHA256 || '79acf4084f7665c87ee91389c1d9773b2e80d67f963dd3441d9836c9e8226ccb'
+);
+const LAUNCHER_LINK_TTL_MS = Number(import.meta.env.VITE_LAUNCHER_LINK_TTL_MS || 5 * 60 * 1000);
+const LAUNCHER_DOWNLOAD_URL = String(
+  import.meta.env.VITE_LAUNCHER_DOWNLOAD_URL || `${window.location.origin}/downloads/AuraLauncher.exe`
+);
 
 function formatDate(timestamp: number | null | undefined) {
   if (!timestamp) {
@@ -189,15 +198,14 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
     setDownloading(true);
     setError(null);
     try {
-      const payload = await requestLauncherDownloadLink();
       setLauncherInfo({
-        version: payload.version || 'unknown',
-        sha256: payload.sha256 || '',
-        expiresAt: payload.expiresAt || 0
+        version: LAUNCHER_VERSION || 'unknown',
+        sha256: LAUNCHER_SHA256 || '',
+        expiresAt: Date.now() + LAUNCHER_LINK_TTL_MS
       });
-      window.location.href = payload.url;
+      window.location.href = LAUNCHER_DOWNLOAD_URL;
     } catch (err: any) {
-      setError(err?.message || 'Не удалось получить ссылку на скачивание.');
+      setError(err?.message || 'Не удалось начать скачивание лаунчера.');
     } finally {
       setDownloading(false);
     }
