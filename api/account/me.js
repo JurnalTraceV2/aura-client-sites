@@ -50,7 +50,7 @@ export default async function handler(req, res) {
       subscription: subState.subscription,
       subscriptionExpiresAt: subState.subscriptionExpiresAt,
       banned: user.banned === true,
-      canDownloadLauncher: user.banned !== true,
+      canDownloadLauncher: user.banned !== true && subState.active === true,
       hwidHash: user.hwidHash || user.hwid || null,
       payments: payments.slice(0, 10)
     });

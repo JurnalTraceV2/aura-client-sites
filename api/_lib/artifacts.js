@@ -51,10 +51,10 @@ function clientConfig() {
 }
 
 function launcherConfig() {
-  const fileName = String(process.env.LAUNCHER_ARTIFACT_NAME || 'AuraLauncher-win-x64.zip').trim();
+  const fileName = String(process.env.LAUNCHER_ARTIFACT_NAME || 'AuraLauncher.exe').trim();
   return {
     type: 'launcher',
-    absolutePath: toAbsolutePath(process.env.LAUNCHER_ARTIFACT_PATH || 'artifacts/AuraLauncher-win-x64.zip'),
+    absolutePath: toAbsolutePath(process.env.LAUNCHER_ARTIFACT_PATH || 'artifacts/AuraLauncher.exe'),
     fileName,
     version: String(process.env.LAUNCHER_VERSION || '1.0.0').trim(),
     hash: String(process.env.LAUNCHER_SHA256 || '').trim().toLowerCase(),

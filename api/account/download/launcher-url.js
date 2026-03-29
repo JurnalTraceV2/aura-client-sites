@@ -4,7 +4,7 @@ import { verifyRequestAuth } from '../../_lib/auth.js';
 import { buildArtifactDownloadUrl, createDownloadToken } from '../../_lib/download-links.js';
 import { readArtifactMeta } from '../../_lib/artifacts.js';
 import { forbidden, methodNotAllowed, serverError, unauthorized } from '../../_lib/http.js';
-import { writeAuditLog } from '../../_lib/license.js';
+import { getSubscriptionState, writeAuditLog } from '../../_lib/license.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -21,6 +21,10 @@ export default async function handler(req, res) {
     const user = userSnapshot.exists() ? (userSnapshot.val() || {}) : {};
     if (user.banned === true) {
       return forbidden(res, 'Account is banned.');
+    }
+    const subState = getSubscriptionState(user);
+    if (!subState.active) {
+      return forbidden(res, 'Subscription inactive.');
     }
 
     const launcherArtifact = readArtifactMeta('launcher');

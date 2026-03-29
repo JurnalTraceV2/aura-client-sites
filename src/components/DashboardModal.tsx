@@ -66,9 +66,14 @@ function paymentStatusLabel(status: string) {
 export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: DashboardModalProps) {
   const [profile, setProfile] = useState<AccountProfile | null>(null);
   const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [downloading, setDownloading] = useState(false);
-    const [runtimeNotice, setRuntimeNotice] = useState<string | null>(paymentNotice || null);
+  const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [runtimeNotice, setRuntimeNotice] = useState<string | null>(paymentNotice || null);
+  const [launcherInfo, setLauncherInfo] = useState<{
+    version: string;
+    sha256: string;
+    expiresAt: number;
+  } | null>(null);
 
   const statusBadge = useMemo(() => {
     if (!profile) {
@@ -83,37 +88,74 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
     return { label: 'INACTIVE', className: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30' };
   }, [profile]);
 
-    const loadProfile = async () => {
+  const launcherState = useMemo(() => {
+    if (!profile) {
+      return {
+        canDownload: false,
+        className: 'text-zinc-400',
+        message: 'Статус загрузки лаунчера будет доступен после загрузки профиля.'
+      };
+    }
+    if (profile.banned) {
+      return {
+        canDownload: false,
+        className: 'text-red-300',
+        message: 'Скачивание недоступно: аккаунт заблокирован.'
+      };
+    }
+    if (profile.subscription === 'none') {
+      return {
+        canDownload: false,
+        className: 'text-yellow-300',
+        message: 'Скачивание недоступно: активируйте подписку.'
+      };
+    }
+    if (!profile.canDownloadLauncher) {
+      return {
+        canDownload: false,
+        className: 'text-yellow-300',
+        message: 'Скачивание временно недоступно. Проверьте статус подписки.'
+      };
+    }
+    return {
+      canDownload: true,
+      className: 'text-green-300',
+      message: 'Скачивание доступно.'
+    };
+  }, [profile]);
+
+  const loadProfile = async () => {
     if (!auth.currentUser) {
       return;
     }
     setLoading(true);
     setError(null);
-        try {
-            const payload = await fetchAccountProfile();
-            setProfile(payload as AccountProfile);
+    try {
+      const payload = await fetchAccountProfile();
+      setProfile(payload as AccountProfile);
+      setLauncherInfo(null);
 
-            const recentPaymentId = localStorage.getItem('aura_last_payment_id');
-            if (recentPaymentId) {
-                const payment = (payload as AccountProfile).payments.find((item) => item.paymentId === recentPaymentId);
-                if (payment) {
-                    const status = String(payment.status || '').toLowerCase();
-                    if (status === 'completed') {
-                        setRuntimeNotice('Оплата подтверждена. Подписка активирована.');
-                        localStorage.removeItem('aura_last_payment_id');
-                    } else if (status === 'failed') {
-                        setRuntimeNotice('Оплата завершилась ошибкой. Попробуйте снова.');
-                        localStorage.removeItem('aura_last_payment_id');
-                    } else {
-                        setRuntimeNotice('Платеж в обработке. Обновляем данные автоматически.');
-                    }
-                }
-            }
-        } catch (err: any) {
-            setError(err?.message || 'Не удалось загрузить данные кабинета.');
-        } finally {
-            setLoading(false);
+      const recentPaymentId = localStorage.getItem('aura_last_payment_id');
+      if (recentPaymentId) {
+        const payment = (payload as AccountProfile).payments.find((item) => item.paymentId === recentPaymentId);
+        if (payment) {
+          const status = String(payment.status || '').toLowerCase();
+          if (status === 'completed') {
+            setRuntimeNotice('Оплата подтверждена. Подписка активирована.');
+            localStorage.removeItem('aura_last_payment_id');
+          } else if (status === 'failed') {
+            setRuntimeNotice('Оплата завершилась ошибкой. Попробуйте снова.');
+            localStorage.removeItem('aura_last_payment_id');
+          } else {
+            setRuntimeNotice('Платеж в обработке. Обновляем данные автоматически.');
+          }
         }
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось загрузить данные кабинета.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -148,6 +190,11 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
     setError(null);
     try {
       const payload = await requestLauncherDownloadLink();
+      setLauncherInfo({
+        version: payload.version || 'unknown',
+        sha256: payload.sha256 || '',
+        expiresAt: payload.expiresAt || 0
+      });
       window.location.href = payload.url;
     } catch (err: any) {
       setError(err?.message || 'Не удалось получить ссылку на скачивание.');
@@ -243,14 +290,24 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                       <Download className="w-4 h-4" />
                       Скачать лаунчер
                     </p>
+                    <p className={`text-sm mb-3 ${launcherState.className}`}>
+                      {launcherState.message}
+                    </p>
                     <button
                       onClick={handleDownloadLauncher}
-                      disabled={!profile.canDownloadLauncher || downloading}
+                      disabled={!launcherState.canDownload || downloading}
                       className="px-5 py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                       Скачать Aura Launcher
                     </button>
+                    {launcherInfo && (
+                      <div className="mt-4 p-3 rounded-xl border border-white/10 bg-black/30 text-xs text-zinc-300 space-y-1">
+                        <p>Версия: <span className="text-zinc-100 font-medium">{launcherInfo.version}</span></p>
+                        <p className="break-all">SHA-256: <span className="text-zinc-100 font-mono">{launcherInfo.sha256 || 'недоступно'}</span></p>
+                        <p>Ссылка активна до: <span className="text-zinc-100">{formatDate(launcherInfo.expiresAt)}</span></p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6">
