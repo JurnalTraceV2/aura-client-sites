@@ -1,4 +1,12 @@
 {
+  "functions": {
+    "api/download/artifact.js": {
+      "includeFiles": "artifacts/AuraLauncher.exe,public/downloads/AuraClient.jar"
+    },
+    "api/launcher/manifest.js": {
+      "includeFiles": "public/downloads/AuraClient.jar"
+    }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/" }
