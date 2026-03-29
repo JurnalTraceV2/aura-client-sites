@@ -1,5 +1,10 @@
 {
   "functions": {
+    "api/account/download/launcher-url.js": {
+      "includeFiles": [
+        "artifacts/AuraLauncher.exe"
+      ]
+    },
     "api/download/artifact.js": {
       "includeFiles": [
         "artifacts/AuraLauncher.exe",
