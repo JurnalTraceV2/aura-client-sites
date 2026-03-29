@@ -1,10 +1,11 @@
 import { get, ref } from 'firebase/database';
 import { db } from '../../_lib/firebase.js';
 import { verifyRequestAuth } from '../../_lib/auth.js';
-import { buildArtifactDownloadUrl, createDownloadToken } from '../../_lib/download-links.js';
-import { getArtifactConfig, readArtifactMeta } from '../../_lib/artifacts.js';
-import { forbidden, methodNotAllowed, serverError, unauthorized } from '../../_lib/http.js';
+import { getArtifactConfig } from '../../_lib/artifacts.js';
+import { forbidden, getRequestBaseUrl, methodNotAllowed, serverError, unauthorized } from '../../_lib/http.js';
 import { getSubscriptionState, writeAuditLog } from '../../_lib/license.js';
+
+const LAUNCHER_LINK_TTL_MS = Number(process.env.LAUNCHER_LINK_TTL_MS || 5 * 60 * 1000);
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -27,38 +28,26 @@ export default async function handler(req, res) {
       return forbidden(res, 'Subscription inactive.');
     }
 
-    let launcherArtifact;
-    try {
-      launcherArtifact = readArtifactMeta('launcher');
-    } catch (artifactError) {
-      // Do not fail link issuing if metadata file probing failed in serverless runtime.
-      // We can still return metadata from env and let /api/download/artifact enforce access.
-      const cfg = getArtifactConfig('launcher');
-      launcherArtifact = {
-        ...cfg,
-        hash: cfg.hash || '',
-        size: cfg.size || 0
-      };
-      console.warn('launcher artifact metadata fallback used:', artifactError?.message || artifactError);
+    const launcherArtifact = getArtifactConfig('launcher');
+    const baseUrl = getRequestBaseUrl(req);
+    if (!baseUrl) {
+      throw new Error('Cannot determine public base URL for launcher download.');
     }
-    const token = createDownloadToken({
-      type: 'launcher',
-      uid: auth.uid
-    });
-
-    const url = buildArtifactDownloadUrl(req, token.token);
+    const url = `${baseUrl}/downloads/AuraLauncher.exe`;
+    const expiresAt = Date.now() + LAUNCHER_LINK_TTL_MS;
 
     await writeAuditLog('launcher_download_link_issued', {
       uid: auth.uid,
       email: user.email || auth.email || null,
-      expiresAt: token.expiresAt
+      expiresAt,
+      mode: 'public_downloads'
     });
 
     return res.status(200).json({
       ok: true,
       url,
-      expiresAt: token.expiresAt,
-      sha256: launcherArtifact.hash,
+      expiresAt,
+      sha256: launcherArtifact.hash || '',
       version: launcherArtifact.version
     });
   } catch (error) {
