@@ -12,6 +12,25 @@ const firebaseConfig = {
   databaseURL: String(import.meta.env.VITE_FIREBASE_DATABASE_URL || '')
 };
 
+const missingFirebaseEnv = Object.entries({
+  VITE_FIREBASE_API_KEY: firebaseConfig.apiKey,
+  VITE_FIREBASE_AUTH_DOMAIN: firebaseConfig.authDomain,
+  VITE_FIREBASE_PROJECT_ID: firebaseConfig.projectId,
+  VITE_FIREBASE_STORAGE_BUCKET: firebaseConfig.storageBucket,
+  VITE_FIREBASE_MESSAGING_SENDER_ID: firebaseConfig.messagingSenderId,
+  VITE_FIREBASE_APP_ID: firebaseConfig.appId,
+  VITE_FIREBASE_DATABASE_URL: firebaseConfig.databaseURL
+})
+  .filter(([, value]) => !value)
+  .map(([key]) => key);
+
+if (missingFirebaseEnv.length > 0) {
+  console.warn(
+    `[Aura] Missing Firebase env vars: ${missingFirebaseEnv.join(', ')}. ` +
+      'Set VITE_FIREBASE_* in deployment environment.'
+  );
+}
+
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);

@@ -314,6 +314,9 @@ export default function App() {
             <a href="/contacts" className="text-sm text-zinc-500 hover:text-white transition-colors">Контакты</a>
           </div>
         </div>
+        <p className="max-w-7xl mx-auto mt-4 text-center text-xs text-zinc-500">
+          Самозанятый: ИНН 20639063753
+        </p>
       </footer>
 
       {/* Modals */}

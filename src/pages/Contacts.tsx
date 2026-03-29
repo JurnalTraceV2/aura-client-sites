@@ -27,6 +27,7 @@ export default function Contacts() {
           <div className="bg-zinc-900/50 rounded-2xl p-8 border border-white/10">
             <h2 className="text-2xl font-semibold text-white mb-4">Юридическая информация</h2>
             <p className="text-zinc-300">Индивидуальный предприниматель / Самозанятый</p>
+            <p className="text-zinc-300 mt-2">ИНН самозанятого: 20639063753</p>
             <p className="text-zinc-300 mt-2">Email для официальных обращений: sowingrim@mail.ru</p>
             <p className="text-zinc-300 mt-2">Сайт: aura-client-sites.vercel.app</p>
           </div>

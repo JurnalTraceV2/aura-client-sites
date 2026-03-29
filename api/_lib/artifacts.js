@@ -23,27 +23,43 @@ function computeSha256Hex(filePath) {
   return crypto.createHash('sha256').update(buffer).digest('hex');
 }
 
+function inferContentType(fileName, fallback) {
+  const lower = String(fileName || '').toLowerCase();
+  if (lower.endsWith('.zip')) {
+    return 'application/zip';
+  }
+  if (lower.endsWith('.jar')) {
+    return 'application/java-archive';
+  }
+  if (lower.endsWith('.exe')) {
+    return 'application/vnd.microsoft.portable-executable';
+  }
+  return fallback;
+}
+
 function clientConfig() {
+  const fileName = String(process.env.CLIENT_ARTIFACT_NAME || 'AuraClient.jar').trim();
   return {
     type: 'client',
     absolutePath: toAbsolutePath(process.env.CLIENT_ARTIFACT_PATH || process.env.CLIENT_JAR_PATH || 'public/downloads/AuraClient.jar'),
-    fileName: String(process.env.CLIENT_ARTIFACT_NAME || 'AuraClient.jar').trim(),
+    fileName,
     version: String(process.env.CLIENT_VERSION || '1.0.0').trim(),
     hash: String(process.env.CLIENT_SHA256 || '').trim().toLowerCase(),
     size: parsePositiveNumber(process.env.CLIENT_SIZE, 0),
-    contentType: 'application/java-archive'
+    contentType: String(process.env.CLIENT_ARTIFACT_CONTENT_TYPE || inferContentType(fileName, 'application/java-archive')).trim()
   };
 }
 
 function launcherConfig() {
+  const fileName = String(process.env.LAUNCHER_ARTIFACT_NAME || 'AuraLauncher-win-x64.zip').trim();
   return {
     type: 'launcher',
-    absolutePath: toAbsolutePath(process.env.LAUNCHER_ARTIFACT_PATH || 'artifacts/AuraLauncherSetup.exe'),
-    fileName: String(process.env.LAUNCHER_ARTIFACT_NAME || 'AuraLauncherSetup.exe').trim(),
+    absolutePath: toAbsolutePath(process.env.LAUNCHER_ARTIFACT_PATH || 'artifacts/AuraLauncher-win-x64.zip'),
+    fileName,
     version: String(process.env.LAUNCHER_VERSION || '1.0.0').trim(),
     hash: String(process.env.LAUNCHER_SHA256 || '').trim().toLowerCase(),
     size: parsePositiveNumber(process.env.LAUNCHER_SIZE, 0),
-    contentType: 'application/vnd.microsoft.portable-executable'
+    contentType: String(process.env.LAUNCHER_ARTIFACT_CONTENT_TYPE || inferContentType(fileName, 'application/octet-stream')).trim()
   };
 }
 
