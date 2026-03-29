@@ -1,20 +1,14 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/account/download/launcher-url.js": {
-      "includeFiles": [
-        "artifacts/AuraLauncher.exe"
-      ]
+      "includeFiles": "artifacts/AuraLauncher.exe"
     },
     "api/download/artifact.js": {
-      "includeFiles": [
-        "artifacts/AuraLauncher.exe",
-        "public/downloads/AuraClient.jar"
-      ]
+      "includeFiles": "{artifacts/AuraLauncher.exe,public/downloads/AuraClient.jar}"
     },
     "api/launcher/manifest.js": {
-      "includeFiles": [
-        "public/downloads/AuraClient.jar"
-      ]
+      "includeFiles": "public/downloads/AuraClient.jar"
     }
   },
   "rewrites": [
