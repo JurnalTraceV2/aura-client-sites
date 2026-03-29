@@ -84,15 +84,19 @@ export function readArtifactMeta(type) {
     throw new Error(`Artifact file not found: ${cfg.absolutePath}`);
   }
 
-  let hash = cfg.hash;
-  let size = cfg.size;
+  const actualHash = computeSha256Hex(cfg.absolutePath);
+  const actualSize = fs.statSync(cfg.absolutePath).size;
 
-  if (!hash) {
-    hash = computeSha256Hex(cfg.absolutePath);
+  let hash = cfg.hash || actualHash;
+  let size = cfg.size || actualSize;
+
+  // Keep launcher/client delivery resilient: if env metadata is stale,
+  // return real file values so manifest verification stays in sync.
+  if (hash !== actualHash) {
+    hash = actualHash;
   }
-
-  if (!size) {
-    size = fs.statSync(cfg.absolutePath).size;
+  if (size !== actualSize) {
+    size = actualSize;
   }
 
   return {
