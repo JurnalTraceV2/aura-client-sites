@@ -4,13 +4,35 @@ import { getRequestBaseUrl } from './http.js';
 const DOWNLOAD_LINK_TTL_MS = Number(process.env.DOWNLOAD_LINK_TTL_MS || 5 * 60 * 1000);
 
 function getSigningSecret() {
-  return String(process.env.DOWNLOAD_LINK_SECRET || '').trim();
+  const explicit = String(process.env.DOWNLOAD_LINK_SECRET || '').trim();
+  if (explicit) {
+    return explicit;
+  }
+
+  // Fallback to server-only secrets so production does not fail with 500
+  // when DOWNLOAD_LINK_SECRET was not configured in Vercel env.
+  const fromManifestLegacy = String(process.env.MANIFEST_PRIVATE_KEY_PEM || '').trim();
+  if (fromManifestLegacy) {
+    return fromManifestLegacy;
+  }
+
+  const fromManifestRing = String(process.env.MANIFEST_PRIVATE_KEYS_JSON || '').trim();
+  if (fromManifestRing) {
+    return fromManifestRing;
+  }
+
+  const fromAdminSecret = String(process.env.ADMIN_API_SECRET || '').trim();
+  if (fromAdminSecret) {
+    return fromAdminSecret;
+  }
+
+  return '';
 }
 
 function signPayload(encodedPayload) {
   const secret = getSigningSecret();
   if (!secret) {
-    throw new Error('DOWNLOAD_LINK_SECRET is not configured.');
+    throw new Error('Download link signing secret is not configured.');
   }
   return crypto.createHmac('sha256', secret).update(encodedPayload).digest('base64url');
 }
