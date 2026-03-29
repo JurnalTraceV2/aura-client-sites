@@ -46,6 +46,15 @@ export const auth = getAuth(app);
 export const db = getDatabase(app);
 export const googleProvider = new GoogleAuthProvider();
 
+function getApiErrorMessage(payload: any, response: Response) {
+  const base = String(payload?.error || payload?.message || `HTTP ${response.status}`).trim();
+  const details = String(payload?.details || '').trim();
+  if (!details) {
+    return base;
+  }
+  return `${base} (${details})`;
+}
+
 function mapTierToBackend(tier: string) {
   const normalized = String(tier || '').trim().toLowerCase();
   if (normalized.includes('1') && normalized.includes('месяц')) {
@@ -114,7 +123,7 @@ export async function createCheckoutPayment(tierUi: string, returnUrl: string) {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.error || payload?.message || `HTTP ${response.status}`);
+    throw new Error(getApiErrorMessage(payload, response));
   }
 
   return {
@@ -131,7 +140,7 @@ export async function fetchAccountProfile() {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload?.ok) {
-    throw new Error(payload?.error || payload?.message || `HTTP ${response.status}`);
+    throw new Error(getApiErrorMessage(payload, response));
   }
   return payload;
 }
@@ -143,7 +152,7 @@ export async function requestLauncherDownloadLink() {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || !payload?.ok || !payload?.url) {
-    throw new Error(payload?.error || payload?.message || `HTTP ${response.status}`);
+    throw new Error(getApiErrorMessage(payload, response));
   }
 
   return {
