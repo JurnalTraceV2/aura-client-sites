@@ -2,7 +2,7 @@ import { get, ref } from 'firebase/database';
 import { db } from '../../_lib/firebase.js';
 import { verifyRequestAuth } from '../../_lib/auth.js';
 import { buildArtifactDownloadUrl, createDownloadToken } from '../../_lib/download-links.js';
-import { readArtifactMeta } from '../../_lib/artifacts.js';
+import { getArtifactConfig, readArtifactMeta } from '../../_lib/artifacts.js';
 import { forbidden, methodNotAllowed, serverError, unauthorized } from '../../_lib/http.js';
 import { getSubscriptionState, writeAuditLog } from '../../_lib/license.js';
 
@@ -27,7 +27,20 @@ export default async function handler(req, res) {
       return forbidden(res, 'Subscription inactive.');
     }
 
-    const launcherArtifact = readArtifactMeta('launcher');
+    let launcherArtifact;
+    try {
+      launcherArtifact = readArtifactMeta('launcher');
+    } catch (artifactError) {
+      // Do not fail link issuing if metadata file probing failed in serverless runtime.
+      // We can still return metadata from env and let /api/download/artifact enforce access.
+      const cfg = getArtifactConfig('launcher');
+      launcherArtifact = {
+        ...cfg,
+        hash: cfg.hash || '',
+        size: cfg.size || 0
+      };
+      console.warn('launcher artifact metadata fallback used:', artifactError?.message || artifactError);
+    }
     const token = createDownloadToken({
       type: 'launcher',
       uid: auth.uid
