@@ -1,10 +1,15 @@
 {
   "functions": {
     "api/download/artifact.js": {
-      "includeFiles": "artifacts/AuraLauncher.exe,public/downloads/AuraClient.jar"
+      "includeFiles": [
+        "artifacts/AuraLauncher.exe",
+        "public/downloads/AuraClient.jar"
+      ]
     },
     "api/launcher/manifest.js": {
-      "includeFiles": "public/downloads/AuraClient.jar"
+      "includeFiles": [
+        "public/downloads/AuraClient.jar"
+      ]
     }
   },
   "rewrites": [
