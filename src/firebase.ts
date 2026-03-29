@@ -1,15 +1,15 @@
-import { initializeApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { getDatabase, ref, set, get, push, serverTimestamp, update, onValue } from 'firebase/database';
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, User } from 'firebase/auth';
+import { getDatabase, get, ref, serverTimestamp, set } from 'firebase/database';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAaz1Sat0zPHZdeUESxkV8lNEtUJE7EEPA",
-  authDomain: "gen-lang-client-0640974949.firebaseapp.com",
-  projectId: "gen-lang-client-0640974949",
-  storageBucket: "gen-lang-client-0640974949.firebasestorage.app",
-  messagingSenderId: "90325346449",
-  appId: "1:90325346449:web:86b3b2f10f9bc94155f730",
-  databaseURL: "https://gen-lang-client-0640974949-default-rtdb.firebaseio.com"
+  apiKey: String(import.meta.env.VITE_FIREBASE_API_KEY || ''),
+  authDomain: String(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || ''),
+  projectId: String(import.meta.env.VITE_FIREBASE_PROJECT_ID || ''),
+  storageBucket: String(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || ''),
+  messagingSenderId: String(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || ''),
+  appId: String(import.meta.env.VITE_FIREBASE_APP_ID || ''),
+  databaseURL: String(import.meta.env.VITE_FIREBASE_DATABASE_URL || '')
 };
 
 const app = initializeApp(firebaseConfig);
@@ -17,21 +17,45 @@ export const auth = getAuth(app);
 export const db = getDatabase(app);
 export const googleProvider = new GoogleAuthProvider();
 
-export enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
+function mapTierToBackend(tier: string) {
+  const normalized = String(tier || '').trim().toLowerCase();
+  if (normalized.includes('1') && normalized.includes('месяц')) {
+    return '1_month';
+  }
+  if (normalized.includes('навсегда') || normalized.includes('lifetime')) {
+    return 'lifetime';
+  }
+  if (normalized.includes('beta') || normalized.includes('бета')) {
+    return 'beta';
+  }
+  if (normalized.includes('hwid') || normalized.includes('сброс')) {
+    return 'hwid_reset';
+  }
+  return normalized;
 }
 
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  console.error(`Error at ${path}:`, error);
+async function authorizedFetch(url: string, init: RequestInit = {}) {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('User is not authenticated.');
+  }
+
+  const idToken = await user.getIdToken();
+  const headers = new Headers(init.headers || {});
+  headers.set('Authorization', `Bearer ${idToken}`);
+  headers.set('Content-Type', 'application/json');
+
+  return fetch(url, {
+    ...init,
+    headers
+  });
 }
 
-export async function ensureUserDocument(user: any) {
-  if (!user) return;
+export async function ensureUserDocument(user: User | null) {
+  if (!user) {
+    return;
+  }
+
   const userRef = ref(db, `users/${user.uid}`);
   try {
     const snapshot = await get(userRef);
@@ -40,74 +64,63 @@ export async function ensureUserDocument(user: any) {
         email: user.email,
         role: 'user',
         subscription: 'none',
-        hwid: null,
+        hwidHash: null,
         createdAt: serverTimestamp()
       });
-      console.log('✅ Пользователь создан:', user.uid);
     }
   } catch (error) {
-    console.error('Error:', error);
+    console.error('ensureUserDocument error:', error);
   }
 }
 
-export async function createPendingPayment(userId: string, amount: number, tier: string) {
-  try {
-    const paymentsRef = ref(db, 'payments');
-    const newPaymentRef = push(paymentsRef);
-    await set(newPaymentRef, {
-      userId,
-      amount,
+export async function createCheckoutPayment(tierUi: string, returnUrl: string) {
+  const tier = mapTierToBackend(tierUi);
+  const response = await authorizedFetch('/api/payments/create', {
+    method: 'POST',
+    body: JSON.stringify({
       tier,
-      status: 'pending',
-      createdAt: serverTimestamp()
-    });
-    console.log('💳 Создан платеж:', newPaymentRef.key);
-    return newPaymentRef.key;
-  } catch (error) {
-    console.error('Error:', error);
-    return null;
+      returnUrl
+    })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || payload?.message || `HTTP ${response.status}`);
   }
+
+  return {
+    paymentId: String(payload.paymentId || ''),
+    confirmationUrl: String(payload.confirmationUrl || ''),
+    expiresAt: Number(payload.expiresAt || 0)
+  };
 }
 
-export async function checkSubscriptionStatus(userId: string) {
-  try {
-    const userRef = ref(db, `users/${userId}`);
-    const snapshot = await get(userRef);
-    if (snapshot.exists()) {
-      const data = snapshot.val();
-      return {
-        hasSubscription: data.subscription !== 'none',
-        status: data.subscription || 'none',
-        expiresAt: data.expiresAt || null,
-        hwid: data.hwid || null
-      };
-    }
-    return { hasSubscription: false, status: 'none', expiresAt: null, hwid: null };
-  } catch (error) {
-    return { hasSubscription: false, status: 'none', expiresAt: null, hwid: null };
+export async function fetchAccountProfile() {
+  const response = await authorizedFetch('/api/account/me', {
+    method: 'GET'
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.ok) {
+    throw new Error(payload?.error || payload?.message || `HTTP ${response.status}`);
   }
+  return payload;
 }
 
-export async function setUserHwid(userId: string, hwid: string) {
-  try {
-    const userRef = ref(db, `users/${userId}`);
-    await update(userRef, { hwid: hwid });
-    console.log('🔒 HWID привязан:', hwid);
-    return true;
-  } catch (error) {
-    return false;
-  }
-}
+export async function requestLauncherDownloadLink() {
+  const response = await authorizedFetch('/api/account/download/launcher-url', {
+    method: 'GET'
+  });
 
-export async function getUserData(userId: string) {
-  try {
-    const userRef = ref(db, `users/${userId}`);
-    const snapshot = await get(userRef);
-    if (snapshot.exists()) {
-      return snapshot.val();
-    }
-    return null;
-  } catch (error) {
-    return null;
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.ok || !payload?.url) {
+    throw new Error(payload?.error || payload?.message || `HTTP ${response.status}`);
   }
+
+  return {
+    url: String(payload.url),
+    expiresAt: Number(payload.expiresAt || 0),
+    sha256: String(payload.sha256 || ''),
+    version: String(payload.version || '')
+  };
 }

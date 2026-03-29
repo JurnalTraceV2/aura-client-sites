@@ -1,54 +1,35 @@
-// api/verify.js
-import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, get } from 'firebase/database';
-
-const firebaseConfig = { ... }; // тот же конфиг
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+﻿import verifySessionHandler from './launcher/verify-session.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ valid: false, message: 'Method not allowed' });
   }
 
-  const { token, hwid } = req.body;
+  const incoming = req.body && typeof req.body === 'object' ? req.body : {};
+  const mappedReq = {
+    ...req,
+    body: {
+      sessionToken: incoming.sessionToken || incoming.token,
+      hwidHash: incoming.hwidHash || incoming.hwid
+    }
+  };
 
-  try {
-    const sessionRef = ref(db, `sessions/${token}`);
-    const session = await get(sessionRef);
-    
-    if (!session.exists()) {
-      return res.status(200).json({ 
-        valid: false, 
-        message: 'Сессия не найдена' 
+  const originalJson = res.json.bind(res);
+  res.json = (payload) => {
+    if (payload && payload.valid === true) {
+      return originalJson({
+        valid: true,
+        uidShort: payload.uidShort,
+        subscription: payload.subscription,
+        sessionExpiresAt: payload.sessionExpiresAt
       });
     }
-    
-    const sessionData = session.val();
-    
-    // Проверка срока действия
-    if (sessionData.expiresAt < Date.now()) {
-      return res.status(200).json({ 
-        valid: false, 
-        message: 'Токен истек' 
-      });
-    }
-    
-    // Проверка HWID
-    if (sessionData.hwid !== hwid) {
-      return res.status(200).json({ 
-        valid: false, 
-        message: 'HWID не совпадает' 
-      });
-    }
-    
-    return res.status(200).json({ 
-      valid: true, 
-      userId: sessionData.userId 
+
+    return originalJson({
+      valid: false,
+      message: payload?.error || payload?.message || 'Session invalid'
     });
-    
-  } catch (error) {
-    return res.status(500).json({ valid: false, message: 'Ошибка' });
-  }
+  };
+
+  return verifySessionHandler(mappedReq, res);
 }

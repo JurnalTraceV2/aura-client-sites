@@ -26,6 +26,8 @@ export default function App() {
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [selectedTier, setSelectedTier] = useState('');
   const [selectedPrice, setSelectedPrice] = useState('');
+  const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
+  const [hasPaymentReturn, setHasPaymentReturn] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -33,6 +35,22 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('paymentReturn') === '1') {
+      setHasPaymentReturn(true);
+      setPaymentNotice('Платеж создан. Обновляем статус подписки...');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (hasPaymentReturn && user) {
+      setIsDashboardOpen(true);
+      setHasPaymentReturn(false);
+    }
+  }, [hasPaymentReturn, user]);
 
   const handleBuyClick = (tier: string, price: string) => {
     if (user) {
@@ -42,6 +60,12 @@ export default function App() {
     } else {
       setIsAuthOpen(true);
     }
+  };
+
+  const handleResetHwidBuy = () => {
+    setSelectedTier('Сброс HWID');
+    setSelectedPrice('499 ₽');
+    setIsPaymentOpen(true);
   };
 
   return (
@@ -294,7 +318,15 @@ export default function App() {
 
       {/* Modals */}
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
-      <DashboardModal isOpen={isDashboardOpen} onClose={() => setIsDashboardOpen(false)} />
+      <DashboardModal
+        isOpen={isDashboardOpen}
+        onClose={() => {
+          setIsDashboardOpen(false);
+          setPaymentNotice(null);
+        }}
+        onResetHwid={handleResetHwidBuy}
+        paymentNotice={paymentNotice}
+      />
       <PaymentModal 
         isOpen={isPaymentOpen} 
         onClose={() => setIsPaymentOpen(false)} 
