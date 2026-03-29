@@ -2,14 +2,24 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, User } from 'firebase/auth';
 import { getDatabase, get, ref, serverTimestamp, set } from 'firebase/database';
 
+const defaultFirebaseConfig = {
+  apiKey: 'AIzaSyAaz1Sat0zPHZdeUESxkV8lNEtUJE7EEPA',
+  authDomain: 'gen-lang-client-0640974949.firebaseapp.com',
+  projectId: 'gen-lang-client-0640974949',
+  storageBucket: 'gen-lang-client-0640974949.firebasestorage.app',
+  messagingSenderId: '90325346449',
+  appId: '1:90325346449:web:86b3b2f10f9bc94155f730',
+  databaseURL: 'https://gen-lang-client-0640974949-default-rtdb.firebaseio.com'
+};
+
 const firebaseConfig = {
-  apiKey: String(import.meta.env.VITE_FIREBASE_API_KEY || ''),
-  authDomain: String(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || ''),
-  projectId: String(import.meta.env.VITE_FIREBASE_PROJECT_ID || ''),
-  storageBucket: String(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || ''),
-  messagingSenderId: String(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || ''),
-  appId: String(import.meta.env.VITE_FIREBASE_APP_ID || ''),
-  databaseURL: String(import.meta.env.VITE_FIREBASE_DATABASE_URL || '')
+  apiKey: String(import.meta.env.VITE_FIREBASE_API_KEY || defaultFirebaseConfig.apiKey),
+  authDomain: String(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || defaultFirebaseConfig.authDomain),
+  projectId: String(import.meta.env.VITE_FIREBASE_PROJECT_ID || defaultFirebaseConfig.projectId),
+  storageBucket: String(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || defaultFirebaseConfig.storageBucket),
+  messagingSenderId: String(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || defaultFirebaseConfig.messagingSenderId),
+  appId: String(import.meta.env.VITE_FIREBASE_APP_ID || defaultFirebaseConfig.appId),
+  databaseURL: String(import.meta.env.VITE_FIREBASE_DATABASE_URL || defaultFirebaseConfig.databaseURL)
 };
 
 const missingFirebaseEnv = Object.entries({
@@ -27,7 +37,7 @@ const missingFirebaseEnv = Object.entries({
 if (missingFirebaseEnv.length > 0) {
   console.warn(
     `[Aura] Missing Firebase env vars: ${missingFirebaseEnv.join(', ')}. ` +
-      'Set VITE_FIREBASE_* in deployment environment.'
+      'Using built-in fallback config. Set VITE_FIREBASE_* in deployment environment.'
   );
 }
 
