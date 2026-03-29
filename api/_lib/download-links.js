@@ -26,7 +26,9 @@ function getSigningSecret() {
     return fromAdminSecret;
   }
 
-  return '';
+  // Last-resort fallback to keep download flow alive in misconfigured envs.
+  // Rotate by setting DOWNLOAD_LINK_SECRET in production.
+  return 'aura-default-download-secret-v1';
 }
 
 function signPayload(encodedPayload) {
