@@ -1,15 +1,72 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "api/download/artifact.js": {
-      "includeFiles": "public/downloads/AuraClient.jar"
+  "version": 2,
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "dist",
+  "builds": [
+    {
+      "src": "api/launcher-auth.cjs",
+      "use": "@vercel/node"
     },
-    "api/launcher/manifest.js": {
-      "includeFiles": "public/downloads/AuraClient.jar"
+    {
+      "src": "api/simple-auth.cjs",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/yookassa.cjs",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/downloads.cjs",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
     }
-  },
+  ],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/" }
+    {
+      "source": "/api/auth/login",
+      "destination": "/api/simple-auth.cjs"
+    },
+    {
+      "source": "/api/payments/(.*)",
+      "destination": "/api/yookassa.cjs"
+    },
+    {
+      "source": "/api/launcher/(.*)",
+      "destination": "/api/launcher-auth.cjs"
+    },
+    {
+      "source": "/api/client/(.*)",
+      "destination": "/api/launcher-auth.cjs"
+    },
+    {
+      "source": "/api/account/(.*)",
+      "destination": "/api/simple-auth.cjs"
+    },
+    {
+      "source": "/downloads/(.*)",
+      "destination": "/api/downloads.cjs"
+    },
+    {
+      "source": "/offer",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/privacy",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/contacts",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!api|downloads|offer|privacy|contacts).*)",
+      "destination": "/index.html"
+    }
   ]
 }

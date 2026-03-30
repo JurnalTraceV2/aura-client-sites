@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+﻿import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, User } from 'firebase/auth';
 import { getDatabase, get, ref, serverTimestamp, set } from 'firebase/database';
 
@@ -57,16 +57,19 @@ function getApiErrorMessage(payload: any, response: Response) {
 
 function mapTierToBackend(tier: string) {
   const normalized = String(tier || '').trim().toLowerCase();
-  if (normalized.includes('1') && normalized.includes('месяц')) {
+  if (['beta', '1_month', 'lifetime', 'hwid_reset'].includes(normalized)) {
+    return normalized;
+  }
+  if (normalized.includes('1') && normalized.includes('РјРµСЃСЏС†')) {
     return '1_month';
   }
-  if (normalized.includes('навсегда') || normalized.includes('lifetime')) {
+  if (normalized.includes('РЅР°РІСЃРµРіРґР°') || normalized.includes('lifetime')) {
     return 'lifetime';
   }
-  if (normalized.includes('beta') || normalized.includes('бета')) {
+  if (normalized.includes('beta') || normalized.includes('Р±РµС‚Р°')) {
     return 'beta';
   }
-  if (normalized.includes('hwid') || normalized.includes('сброс')) {
+  if (normalized.includes('hwid') || normalized.includes('СЃР±СЂРѕСЃ')) {
     return 'hwid_reset';
   }
   return normalized;
@@ -162,3 +165,4 @@ export async function requestLauncherDownloadLink() {
     version: String(payload.version || '')
   };
 }
+

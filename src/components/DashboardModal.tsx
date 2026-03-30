@@ -32,6 +32,34 @@ interface AccountProfile {
   payments: AccountPayment[];
 }
 
+function normalizeProfile(payload: any): AccountProfile {
+  const source = payload?.user && typeof payload.user === 'object' ? payload.user : payload || {};
+  const paymentsRaw = Array.isArray(source.payments) ? source.payments : [];
+
+  return {
+    uid: String(source.uid || auth.currentUser?.uid || ''),
+    email: source.email ?? auth.currentUser?.email ?? null,
+    uidShort: source.uidShort ?? null,
+    subscription: String(source.subscription || 'none'),
+    subscriptionExpiresAt:
+      typeof source.subscriptionExpiresAt === 'number' ? source.subscriptionExpiresAt : null,
+    banned: Boolean(source.banned),
+    canDownloadLauncher:
+      typeof source.canDownloadLauncher === 'boolean'
+        ? source.canDownloadLauncher
+        : String(source.subscription || 'none') !== 'none' && !Boolean(source.banned),
+    hwidHash: source.hwidHash ?? null,
+    payments: paymentsRaw.map((item: any) => ({
+      paymentId: String(item?.paymentId || item?.id || ''),
+      tier: item?.tier ?? null,
+      amount: typeof item?.amount === 'number' ? item.amount : null,
+      status: String(item?.status || 'pending'),
+      createdAt: typeof item?.createdAt === 'number' ? item.createdAt : null,
+      processedAt: typeof item?.processedAt === 'number' ? item.processedAt : null
+    }))
+  };
+}
+
 const LAUNCHER_VERSION = String(import.meta.env.VITE_LAUNCHER_VERSION || 'mega-webview-x64-20260329');
 const LAUNCHER_SHA256 = String(
   import.meta.env.VITE_LAUNCHER_SHA256 || '79acf4084f7665c87ee91389c1d9773b2e80d67f963dd3441d9836c9e8226ccb'
@@ -141,12 +169,13 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
     setError(null);
     try {
       const payload = await fetchAccountProfile();
-      setProfile(payload as AccountProfile);
+      const normalized = normalizeProfile(payload);
+      setProfile(normalized);
       setLauncherInfo(null);
 
       const recentPaymentId = localStorage.getItem('aura_last_payment_id');
       if (recentPaymentId) {
-        const payment = (payload as AccountProfile).payments.find((item) => item.paymentId === recentPaymentId);
+        const payment = normalized.payments.find((item) => item.paymentId === recentPaymentId);
         if (payment) {
           const status = String(payment.status || '').toLowerCase();
           if (status === 'completed') {

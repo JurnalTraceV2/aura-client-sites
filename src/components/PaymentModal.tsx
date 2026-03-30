@@ -6,11 +6,12 @@ import { auth, createCheckoutPayment } from '../firebase';
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  tierId: string;
   tier: string;
   price: string;
 }
 
-export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps) {
+export function PaymentModal({ isOpen, onClose, tierId, tier, price }: PaymentModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const user = auth.currentUser;
@@ -26,7 +27,7 @@ export function PaymentModal({ isOpen, onClose, tier, price }: PaymentModalProps
 
     try {
       const returnUrl = `${window.location.origin}/?paymentReturn=1`;
-      const checkout = await createCheckoutPayment(tier, returnUrl);
+      const checkout = await createCheckoutPayment(tierId, returnUrl);
       if (!checkout.confirmationUrl) {
         throw new Error('Платежный URL не получен.');
       }

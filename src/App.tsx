@@ -24,6 +24,7 @@ export default function App() {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [selectedTierId, setSelectedTierId] = useState('');
   const [selectedTier, setSelectedTier] = useState('');
   const [selectedPrice, setSelectedPrice] = useState('');
   const [paymentNotice, setPaymentNotice] = useState<string | null>(null);
@@ -52,9 +53,10 @@ export default function App() {
     }
   }, [hasPaymentReturn, user]);
 
-  const handleBuyClick = (tier: string, price: string) => {
+  const handleBuyClick = (tierId: string, tierLabel: string, price: string) => {
     if (user) {
-      setSelectedTier(tier);
+      setSelectedTierId(tierId);
+      setSelectedTier(tierLabel);
       setSelectedPrice(price);
       setIsPaymentOpen(true);
     } else {
@@ -63,6 +65,7 @@ export default function App() {
   };
 
   const handleResetHwidBuy = () => {
+    setSelectedTierId('hwid_reset');
     setSelectedTier('Сброс HWID');
     setSelectedPrice('499 ₽');
     setIsPaymentOpen(true);
@@ -212,7 +215,7 @@ export default function App() {
               delay={0.1}
               icon={<Sword className="w-7 h-7 text-white" />}
               title="Smart KillAura"
-              description="Умная аура с настройкой FOV, дистанции и приоритета целей. Идеально бьет игроков, обходит популярные античиты (Matrix, Vulcan, Grim)."
+              description="Умная аура с настройкой FOV, дистанции и приоритета целей. деально бьет игроков, обходит популярные античиты (Matrix, Vulcan, Grim)."
             />
             <FeatureCard 
               delay={0.2}
@@ -270,7 +273,7 @@ export default function App() {
               title="1 Месяц"
               price="299₽"
               features={['Доступ ко всем функциям', 'Обновления клиента', 'Поддержка в Discord', 'Готовые конфиги']}
-              onBuy={() => handleBuyClick('1 Месяц', '299₽')}
+              onBuy={() => handleBuyClick('1_month', '1 Месяц', '299₽')}
             />
             <PricingCard 
               delay={0.2}
@@ -278,21 +281,21 @@ export default function App() {
               price="890₽"
               isPopular
               features={['Доступ ко всем функциям', 'Пожизненные обновления', 'Приоритетная поддержка', 'Премиум конфиги', 'Уникальная роль в Discord']}
-              onBuy={() => handleBuyClick('Навсегда', '890₽')}
+              onBuy={() => handleBuyClick('lifetime', 'Навсегда', '890₽')}
             />
             <PricingCard 
               delay={0.3}
               title="Бета"
               price="1290₽"
               features={['Ранний доступ к обходам', 'Эксклюзивные функции', 'Прямая связь с кодером', 'Уникальная Beta роль', 'Влияние на разработку']}
-              onBuy={() => handleBuyClick('Бета', '1290₽')}
+              onBuy={() => handleBuyClick('beta', 'Бета', '1290₽')}
             />
             <PricingCard 
               delay={0.4}
               title="Сброс HWID"
               price="499₽"
               features={['Сброс привязки к ПК', 'Безлимитная активация', 'Одноразовая услуга', 'Подходит для всех тарифов']}
-              onBuy={() => handleBuyClick('Сброс HWID', '499₽')}
+              onBuy={() => handleBuyClick('hwid_reset', 'Сброс HWID', '499₽')}
             />
           </div>
         </div>
@@ -315,7 +318,7 @@ export default function App() {
           </div>
         </div>
         <p className="max-w-7xl mx-auto mt-4 text-center text-xs text-zinc-500">
-          Самозанятый: ИНН 20639063753
+          Самозанятый: Игорь Глебов Александрович, НН 20639063753
         </p>
       </footer>
 
@@ -333,6 +336,7 @@ export default function App() {
       <PaymentModal 
         isOpen={isPaymentOpen} 
         onClose={() => setIsPaymentOpen(false)} 
+        tierId={selectedTierId}
         tier={selectedTier}
         price={selectedPrice}
       />
@@ -423,3 +427,4 @@ function TelegramIcon() {
     </svg>
   );
 }
+
