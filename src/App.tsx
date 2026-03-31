@@ -318,7 +318,7 @@ export default function App() {
           </div>
         </div>
         <p className="max-w-7xl mx-auto mt-4 text-center text-xs text-zinc-500">
-          Самозанятый: Игорь Глебов Александрович, НН 20639063753
+          Самозанятый: Игорь Глебов Александрович, ИНН 20639063753
         </p>
       </footer>
 
