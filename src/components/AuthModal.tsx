@@ -1,8 +1,8 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Mail, Lock, LogIn, UserPlus } from 'lucide-react';
-import { auth, ensureUserDocument } from '../firebase';
+import { X, User, Lock, LogIn, UserPlus } from 'lucide-react';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth, ensureUserDocument, normalizeUsername, usernameToEmail } from '../firebase';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -11,7 +11,7 @@ interface AuthModalProps {
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,13 +22,21 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     setLoading(true);
 
     try {
+      const normalizedUser = normalizeUsername(username);
+      const authEmail = usernameToEmail(normalizedUser);
+
+      if (!normalizedUser || !authEmail) {
+        throw new Error('Use a nickname with letters, numbers, or _.');
+      }
+
       let userCredential;
       if (isLogin) {
-        userCredential = await signInWithEmailAndPassword(auth, email, password);
+        userCredential = await signInWithEmailAndPassword(auth, authEmail, password);
       } else {
-        userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        userCredential = await createUserWithEmailAndPassword(auth, authEmail, password);
       }
-      await ensureUserDocument(userCredential.user);
+
+      await ensureUserDocument(userCredential.user, normalizedUser);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Authorization error');
@@ -72,7 +80,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 {isLogin ? 'Sign in' : 'Create account'}
               </h2>
               <p className="text-zinc-400 mb-8">
-                {isLogin ? 'Use email/password to manage your subscription.' : 'Create an account to buy access.'}
+                {isLogin ? 'Use nickname and password to manage your subscription.' : 'Create an account with a nickname and password.'}
               </p>
 
               {error && (
@@ -83,12 +91,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
               <form onSubmit={handleAuth} className="space-y-4">
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
                   <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    type="text"
+                    placeholder="Nickname"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     required
                     className="w-full bg-zinc-950 border border-white/10 rounded-xl py-4 pl-12 pr-4 text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/30 transition-colors"
                   />

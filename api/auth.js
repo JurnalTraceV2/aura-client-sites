@@ -21,7 +21,8 @@ export default async function handler(req, res) {
 
   const incoming = req.body && typeof req.body === 'object' ? req.body : {};
   const mappedBody = {
-    email: incoming.email || incoming.login,
+    username: incoming.username || incoming.login || incoming.email,
+    email: incoming.email || incoming.username || incoming.login,
     password: incoming.password || incoming.pass,
     hwidHash: incoming.hwidHash || incoming.hwid,
     launcherVersion: incoming.launcherVersion || incoming.version || 'legacy',
@@ -53,7 +54,7 @@ export default async function handler(req, res) {
         subscription: payload.subscription,
         sessionExpiresAt: payload.sessionExpiresAt,
         user: {
-          login: payload.user?.email || mappedBody.email,
+          login: payload.user?.username || mappedBody.username,
           id: payload.user?.uid,
           role: 'user',
           subscription: payload.subscription

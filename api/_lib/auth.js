@@ -1,5 +1,6 @@
 import { webApiKey } from './firebase.js';
 import { extractBearerToken } from './http.js';
+import { emailToUsername, getUserByUid } from './license.js';
 
 export async function verifyFirebaseIdToken(idToken) {
   const token = String(idToken || '').trim();
@@ -32,11 +33,14 @@ export async function verifyFirebaseIdToken(idToken) {
     return { ok: false, message: 'User not found for token.' };
   }
 
+  const profile = await getUserByUid(user.localId).catch(() => null);
+
   return {
     ok: true,
     uid: user.localId,
     email: user.email || null,
-    emailVerified: user.emailVerified === true
+    emailVerified: user.emailVerified === true,
+    username: profile?.username || emailToUsername(user.email || '')
   };
 }
 

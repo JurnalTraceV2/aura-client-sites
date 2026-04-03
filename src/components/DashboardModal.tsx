@@ -22,6 +22,7 @@ interface AccountPayment {
 
 interface AccountProfile {
   uid: string;
+  username: string | null;
   email: string | null;
   uidShort: string | null;
   subscription: string;
@@ -38,6 +39,7 @@ function normalizeProfile(payload: any): AccountProfile {
 
   return {
     uid: String(source.uid || auth.currentUser?.uid || ''),
+    username: source.username ?? null,
     email: source.email ?? auth.currentUser?.email ?? null,
     uidShort: source.uidShort ?? null,
     subscription: String(source.subscription || 'none'),
@@ -274,7 +276,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center font-display font-black text-2xl text-black">A</div>
                 <div>
                   <h2 className="text-3xl font-display font-bold">Личный кабинет</h2>
-                  <p className="text-zinc-400 text-sm">{auth.currentUser?.email}</p>
+                  <p className="text-zinc-400 text-sm">{profile?.username || 'unknown'}</p>
                 </div>
               </div>
 

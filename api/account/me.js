@@ -15,7 +15,7 @@ export default async function handler(req, res) {
       return unauthorized(res, auth.message || 'Unauthorized.');
     }
 
-    await ensureUserRecord(auth.uid, auth.email || undefined);
+    await ensureUserRecord(auth.uid, auth.email || undefined, auth.username || '');
 
     const userSnapshot = await get(ref(db, `users/${auth.uid}`));
     const user = userSnapshot.exists() ? (userSnapshot.val() || {}) : {};
@@ -46,6 +46,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       uid: auth.uid,
+      username: user.username || auth.username || null,
       email: user.email || auth.email || null,
       uidShort: user.uidShort || null,
       subscription: subState.plan,

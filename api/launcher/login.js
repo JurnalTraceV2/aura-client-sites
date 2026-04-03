@@ -1,14 +1,15 @@
 import { ref, update } from 'firebase/database';
 import { db } from '../_lib/firebase.js';
 import {
-  authenticateEmailPassword,
-  signUpEmailPassword,
+  authenticateUsernamePassword,
+  signUpUsernamePassword,
   createSession,
   ensureUserRecord,
   evaluateHwidPolicy,
   getEntitlement,
   resolveEntitlementState,
   normalizeHwidHash,
+  normalizeUsername,
   writeAuditLog
 } from '../_lib/license.js';
 import { createAccessToken, createRefreshToken } from '../_lib/tokens.js';
@@ -38,40 +39,40 @@ export default async function handler(req, res) {
   }
 
   const body = getBody(req);
-  const email = String(body.email || '').trim().toLowerCase();
+  const username = normalizeUsername(body.username || body.login || body.email || '');
   const password = String(body.password || '');
   const launcherVersion = String(body.launcherVersion || 'unknown').trim();
   const hwidHash = normalizeHwidHash(body.hwidHash || body.hwid || '');
   const deviceId = String(body.deviceId || '').trim().slice(0, 128) || hwidHash.slice(0, 16);
   const deviceFingerprintHash = normalizeHwidHash(body.deviceProof || body.deviceFingerprintHash || '');
 
-  if (!email || !password || !hwidHash) {
-    return badRequest(res, 'email, password and hwidHash are required.');
+  if (!username || !password || !hwidHash) {
+    return badRequest(res, 'username, password and hwidHash are required.');
   }
 
   try {
-    let auth = await authenticateEmailPassword(email, password);
+    let auth = await authenticateUsernamePassword(username, password);
     if (!auth.ok) {
       if (auth.message === 'EMAIL_NOT_FOUND') {
-        const reg = await signUpEmailPassword(email, password);
+        const reg = await signUpUsernamePassword(username, password);
         if (reg.ok) {
           auth = reg;
         } else {
-          await writeAuditLog('launcher_registration_auto_failed', { ip, email, reason: reg.message });
+          await writeAuditLog('launcher_registration_auto_failed', { ip, username, reason: reg.message });
           return unauthorized(res, reg.message || 'Auto-registration failed.');
         }
       } else {
-        await writeAuditLog('launcher_login_failed', { ip, email, reason: auth.message || 'auth_failed' });
+        await writeAuditLog('launcher_login_failed', { ip, username, reason: auth.message || 'auth_failed' });
         return unauthorized(res, auth.message || 'Invalid credentials.');
       }
     }
 
-    const user = await ensureUserRecord(auth.uid, auth.email || email);
+    const user = await ensureUserRecord(auth.uid, auth.email || '', auth.username || username);
     if (user.banned === true) {
       await writeAuditLog('launcher_login_blocked_banned', {
         ip,
         uid: auth.uid,
-        email
+        username
       });
       return res.status(403).json({ ok: false, error: 'User is banned.' });
     }
@@ -82,7 +83,7 @@ export default async function handler(req, res) {
       await writeAuditLog('launcher_login_blocked_subscription', {
         ip,
         uid: auth.uid,
-        email,
+        username,
         subscription: entitlementState.plan || user.subscription || 'none'
       });
       return res.status(403).json({ ok: false, error: 'Subscription inactive.' });
@@ -106,7 +107,7 @@ export default async function handler(req, res) {
       await writeAuditLog('launcher_login_blocked_hwid', {
         ip,
         uid: auth.uid,
-        email,
+        username,
         hwidHash,
         reason: hwidDecision.message
       });
@@ -138,7 +139,7 @@ export default async function handler(req, res) {
     await writeAuditLog('launcher_login_success', {
       ip,
       uid: auth.uid,
-      email,
+      username,
       hwidHash,
       launcherVersion,
       uidShort,
@@ -164,7 +165,8 @@ export default async function handler(req, res) {
       clientDownloadUrl: buildArtifactDownloadUrl(req, dlToken.token),
       user: {
         uid: auth.uid,
-        email: auth.email || email
+        email: auth.email || null,
+        username: user.username || auth.username || username
       },
       device: {
         deviceId

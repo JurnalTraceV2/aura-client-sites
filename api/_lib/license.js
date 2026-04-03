@@ -21,6 +21,32 @@ export function sha256Hex(value) {
   return crypto.createHash('sha256').update(String(value || ''), 'utf8').digest('hex');
 }
 
+export function normalizeUsername(rawUsername) {
+  return String(rawUsername || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '')
+    .slice(0, 24);
+}
+
+export function usernameToEmail(username) {
+  const normalized = normalizeUsername(username);
+  return normalized ? `${normalized}@aura.local` : '';
+}
+
+export function emailToUsername(email) {
+  const raw = String(email || '').trim().toLowerCase();
+  if (!raw) {
+    return '';
+  }
+
+  if (raw.endsWith('@aura.local')) {
+    return normalizeUsername(raw.slice(0, raw.indexOf('@')));
+  }
+
+  return normalizeUsername(raw.split('@')[0]);
+}
+
 export function hashToken(token) {
   return sha256Hex(token);
 }
@@ -110,6 +136,24 @@ export async function signUpEmailPassword(email, password) {
   };
 }
 
+export async function signUpUsernamePassword(username, password) {
+  const email = usernameToEmail(username);
+  if (!email) {
+    return { ok: false, message: 'Username is required.' };
+  }
+
+  const result = await signUpEmailPassword(email, password);
+  if (!result.ok) {
+    return result;
+  }
+
+  return {
+    ...result,
+    email,
+    username: emailToUsername(email)
+  };
+}
+
 export async function authenticateEmailPassword(email, password) {
   if (!webApiKey) {
     return { ok: false, message: 'Firebase API key is not configured.' };
@@ -143,6 +187,24 @@ export async function authenticateEmailPassword(email, password) {
   };
 }
 
+export async function authenticateUsernamePassword(username, password) {
+  const email = usernameToEmail(username);
+  if (!email) {
+    return { ok: false, message: 'Username is required.' };
+  }
+
+  const result = await authenticateEmailPassword(email, password);
+  if (!result.ok) {
+    return result;
+  }
+
+  return {
+    ...result,
+    email,
+    username: emailToUsername(email)
+  };
+}
+
 export async function getUserByUid(uid) {
   const userSnapshot = await get(ref(db, `users/${uid}`));
   if (!userSnapshot.exists()) {
@@ -152,15 +214,17 @@ export async function getUserByUid(uid) {
   return userSnapshot.val();
 }
 
-export async function ensureUserRecord(uid, email) {
+export async function ensureUserRecord(uid, email, username = '') {
   const userRef = ref(db, `users/${uid}`);
   const entitlementRef = ref(db, `entitlements/${uid}`);
   const snapshot = await get(userRef);
+  const normalizedUsername = normalizeUsername(username || emailToUsername(email));
 
   if (!snapshot.exists()) {
     const now = nowMs();
     const freshUser = {
       email,
+      username: normalizedUsername || null,
       role: 'user',
       status: 'active',
       subscription: 'none',
@@ -190,6 +254,10 @@ export async function ensureUserRecord(uid, email) {
 
   if (!existing.email && email) {
     patch.email = email;
+  }
+
+  if (!existing.username && normalizedUsername) {
+    patch.username = normalizedUsername;
   }
 
   if (!existing.uidShort) {
@@ -448,6 +516,7 @@ export async function verifySessionToken(sessionToken, hwidHash, options = {}) {
     uid: session.uid,
     uidShort,
     email: user.email || null,
+    username: user.username || emailToUsername(user.email),
     subscription: entitlementState.plan,
     sessionExpiresAt: toNumber(session.expiresAt, now)
   };

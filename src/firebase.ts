@@ -1,4 +1,4 @@
-﻿import { initializeApp } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import { getAuth, User } from 'firebase/auth';
 import { getDatabase, get, ref, serverTimestamp, set } from 'firebase/database';
 
@@ -44,6 +44,32 @@ if (missingFirebaseEnv.length > 0) {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
+
+export function normalizeUsername(rawUsername: string) {
+  return String(rawUsername || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '')
+    .slice(0, 24);
+}
+
+export function usernameToEmail(username: string) {
+  const normalized = normalizeUsername(username);
+  return normalized ? `${normalized}@aura.local` : '';
+}
+
+export function emailToUsername(email: string | null | undefined) {
+  const raw = String(email || '').trim().toLowerCase();
+  if (!raw) {
+    return '';
+  }
+
+  if (raw.endsWith('@aura.local')) {
+    return normalizeUsername(raw.slice(0, raw.indexOf('@')));
+  }
+
+  return normalizeUsername(raw.split('@')[0]);
+}
 
 function getApiErrorMessage(payload: any, response: Response) {
   const base = String(payload?.error || payload?.message || `HTTP ${response.status}`).trim();
@@ -91,24 +117,30 @@ async function authorizedFetch(url: string, init: RequestInit = {}) {
   });
 }
 
-export async function ensureUserDocument(user: User | null) {
+export async function ensureUserDocument(user: User | null, username = '') {
   if (!user) {
     return;
   }
 
   const userRef = ref(db, `users/${user.uid}`);
   const entitlementRef = ref(db, `entitlements/${user.uid}`);
+  const normalizedUsername = normalizeUsername(username || emailToUsername(user.email));
+
   try {
     const snapshot = await get(userRef);
     if (!snapshot.exists()) {
       await set(userRef, {
         email: user.email,
+        username: normalizedUsername || null,
         role: 'user',
         subscription: 'none',
         hwidHash: null,
         createdAt: serverTimestamp()
       });
+    } else if (normalizedUsername && !snapshot.val()?.username) {
+      await set(ref(db, `users/${user.uid}/username`), normalizedUsername);
     }
+
     const entitlementSnapshot = await get(entitlementRef);
     if (!entitlementSnapshot.exists()) {
       await set(entitlementRef, {
@@ -175,4 +207,3 @@ export async function requestLauncherDownloadLink() {
     version: String(payload.version || '')
   };
 }
-
