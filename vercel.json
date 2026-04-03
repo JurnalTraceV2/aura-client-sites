@@ -52,6 +52,14 @@
       "use": "@vercel/node"
     },
     {
+      "src": "api/loader_compat.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/bind_hwid_compat.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
@@ -60,6 +68,18 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/api/loader.php",
+      "destination": "/api/loader_compat.js"
+    },
+    {
+      "source": "/api/bind_hwid.php",
+      "destination": "/api/bind_hwid_compat.js"
+    },
+    {
+      "source": "/api/admin/bind_hwid.php",
+      "destination": "/api/bind_hwid_compat.js"
+    },
     {
       "source": "/api/auth/login",
       "destination": "/api/auth.js"

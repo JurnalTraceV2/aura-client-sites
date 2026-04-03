@@ -63,6 +63,32 @@ function launcherConfig() {
   };
 }
 
+function jreConfig() {
+  const fileName = String(process.env.JRE_ARTIFACT_NAME || 'jre.zip').trim();
+  return {
+    type: 'jre',
+    absolutePath: toAbsolutePath(process.env.JRE_ARTIFACT_PATH || 'artifacts/jre.zip'),
+    fileName,
+    version: String(process.env.JRE_VERSION || '21').trim(),
+    hash: String(process.env.JRE_SHA256 || '').trim().toLowerCase(),
+    size: parsePositiveNumber(process.env.JRE_SIZE, 0),
+    contentType: String(process.env.JRE_ARTIFACT_CONTENT_TYPE || inferContentType(fileName, 'application/zip')).trim()
+  };
+}
+
+function assetsConfig() {
+  const fileName = String(process.env.ASSETS_ARTIFACT_NAME || 'MinecraftAssets.zip').trim();
+  return {
+    type: 'assets',
+    absolutePath: toAbsolutePath(process.env.ASSETS_ARTIFACT_PATH || 'artifacts/MinecraftAssets.zip'),
+    fileName,
+    version: String(process.env.ASSETS_VERSION || '1.0.0').trim(),
+    hash: String(process.env.ASSETS_SHA256 || '').trim().toLowerCase(),
+    size: parsePositiveNumber(process.env.ASSETS_SIZE, 0),
+    contentType: String(process.env.ASSETS_ARTIFACT_CONTENT_TYPE || inferContentType(fileName, 'application/zip')).trim()
+  };
+}
+
 export function getArtifactConfig(type) {
   const kind = String(type || '').trim().toLowerCase();
   if (kind === 'client') {
@@ -70,6 +96,12 @@ export function getArtifactConfig(type) {
   }
   if (kind === 'launcher') {
     return launcherConfig();
+  }
+  if (kind === 'jre') {
+    return jreConfig();
+  }
+  if (kind === 'assets') {
+    return assetsConfig();
   }
 
   throw new Error(`Unsupported artifact type: ${type}`);

@@ -1,4 +1,4 @@
-﻿import crypto from 'crypto';
+import crypto from 'crypto';
 import { get, push, ref, remove, set, update } from 'firebase/database';
 import { db, webApiKey } from './firebase.js';
 
@@ -74,6 +74,39 @@ export function getSubscriptionState(user, now = nowMs()) {
     active,
     subscription: active ? subscription : 'none',
     subscriptionExpiresAt: expiresAt > 0 ? expiresAt : null
+  };
+}
+
+export async function signUpEmailPassword(email, password) {
+  if (!webApiKey) {
+    return { ok: false, message: 'Firebase API key is not configured.' };
+  }
+
+  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${webApiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      returnSecureToken: true
+    })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    return {
+      ok: false,
+      message: payload?.error?.message || 'Registration failed.'
+    };
+  }
+
+  return {
+    ok: true,
+    uid: payload.localId,
+    email: payload.email,
+    idToken: payload.idToken
   };
 }
 

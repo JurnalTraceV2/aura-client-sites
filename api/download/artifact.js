@@ -19,20 +19,30 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  const token = readQueryToken(req);
-  const verified = verifyDownloadToken(token);
-  if (!verified.valid) {
-    return res.status(403).json({ ok: false, error: verified.message || 'Download link is invalid.' });
+  let type = String(req.query.type || '').trim();
+  let uid = 'public';
+  let jti = 'public-jti';
+
+  const isPublicType = ['jre', 'assets'].includes(type);
+
+  if (!isPublicType) {
+    const token = readQueryToken(req);
+    const verified = verifyDownloadToken(token);
+    if (!verified.valid) {
+      return res.status(403).json({ ok: false, error: verified.message || 'Download link is invalid.' });
+    }
+
+    const payload = verified.payload || {};
+    type = String(payload.type || '').trim();
+    uid = String(payload.uid || '').trim();
+    jti = String(payload.jti || '').trim();
+
+    if (!type || !uid || !jti) {
+      return res.status(403).json({ ok: false, error: 'Download token payload is invalid.' });
+    }
   }
 
-  const payload = verified.payload || {};
-  const type = String(payload.type || '').trim();
-  const uid = String(payload.uid || '').trim();
-  const jti = String(payload.jti || '').trim();
-  if (!type || !uid || !jti) {
-    return res.status(403).json({ ok: false, error: 'Download token payload is invalid.' });
-  }
-  if (!['launcher', 'client'].includes(type)) {
+  if (!['launcher', 'client', 'jre', 'assets'].includes(type)) {
     return res.status(403).json({ ok: false, error: 'Unsupported artifact type.' });
   }
 

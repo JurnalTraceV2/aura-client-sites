@@ -1,7 +1,8 @@
-﻿import { ref, update } from 'firebase/database';
+import { ref, update } from 'firebase/database';
 import { db } from '../_lib/firebase.js';
 import {
   authenticateEmailPassword,
+  signUpEmailPassword,
   createSession,
   ensureUserRecord,
   evaluateHwidPolicy,
@@ -20,6 +21,7 @@ import {
   getBody
 } from '../_lib/http.js';
 import { checkRateLimit, getClientIp } from '../_lib/rate-limit.js';
+import { createDownloadToken, buildArtifactDownloadUrl } from '../_lib/download-links.js';
 
 const LOGIN_LIMIT = Number(process.env.LAUNCHER_LOGIN_RATE_LIMIT || 12);
 const LOGIN_WINDOW_MS = Number(process.env.LAUNCHER_LOGIN_WINDOW_MS || 10 * 60 * 1000);
@@ -48,14 +50,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    const auth = await authenticateEmailPassword(email, password);
+    let auth = await authenticateEmailPassword(email, password);
     if (!auth.ok) {
-      await writeAuditLog('launcher_login_failed', {
-        ip,
-        email,
-        reason: auth.message || 'auth_failed'
-      });
-      return unauthorized(res, auth.message || 'Invalid credentials.');
+      if (auth.message === 'EMAIL_NOT_FOUND') {
+        const reg = await signUpEmailPassword(email, password);
+        if (reg.ok) {
+          auth = reg;
+        } else {
+          await writeAuditLog('launcher_registration_auto_failed', { ip, email, reason: reg.message });
+          return unauthorized(res, reg.message || 'Auto-registration failed.');
+        }
+      } else {
+        await writeAuditLog('launcher_login_failed', { ip, email, reason: auth.message || 'auth_failed' });
+        return unauthorized(res, auth.message || 'Invalid credentials.');
+      }
     }
 
     const user = await ensureUserRecord(auth.uid, auth.email || email);
@@ -137,6 +145,12 @@ export default async function handler(req, res) {
       sessionExpiresAt: session.sessionExpiresAt
     });
 
+    const dlToken = createDownloadToken({
+      type: 'client',
+      uid: auth.uid,
+      ip
+    });
+
     return res.status(200).json({
       ok: true,
       sessionToken: session.sessionToken,
@@ -147,6 +161,7 @@ export default async function handler(req, res) {
       refreshToken: refresh.token,
       accessTokenExpiresAt: access.exp * 1000,
       refreshTokenExpiresAt: refresh.exp * 1000,
+      clientDownloadUrl: buildArtifactDownloadUrl(req, dlToken.token),
       user: {
         uid: auth.uid,
         email: auth.email || email

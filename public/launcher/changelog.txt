@@ -1,0 +1,4 @@
+Aura Loader Initial Release 2026.
+- Added authentication compatibility with the new Vercel website.
+- Fixed minor UI bugs.
+- Increased security with HWID binding.
