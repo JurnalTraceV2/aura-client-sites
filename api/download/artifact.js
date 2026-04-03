@@ -19,31 +19,31 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  let type = String(req.query.type || '').trim();
-  let uid = 'public';
-  let jti = 'public-jti';
-  let payload = {};
+  let artifactType = String(req.query.type || '').trim();
+  let userId = 'public';
+  let tokenId = 'public-jti';
+  let tokenPayload = {};
 
-  const isPublicType = ['jre', 'assets'].includes(type);
+  const isPublicType = ['jre', 'assets'].includes(artifactType);
 
   if (!isPublicType) {
-    const token = readQueryToken(req);
-    const verified = verifyDownloadToken(token);
+    const queryToken = readQueryToken(req);
+    const verified = verifyDownloadToken(queryToken);
     if (!verified.valid) {
       return res.status(403).json({ ok: false, error: verified.message || 'Download link is invalid.' });
     }
 
-    payload = verified.payload || {};
-    type = String(payload.type || '').trim();
-    uid = String(payload.uid || '').trim();
-    jti = String(payload.jti || '').trim();
+    tokenPayload = verified.payload || {};
+    artifactType = String(tokenPayload.type || '').trim();
+    userId = String(tokenPayload.uid || '').trim();
+    tokenId = String(tokenPayload.jti || '').trim();
 
-    if (!type || !uid || !jti) {
+    if (!artifactType || !userId || !tokenId) {
       return res.status(403).json({ ok: false, error: 'Download token payload is invalid.' });
     }
   }
 
-  if (!['launcher', 'client', 'jre', 'assets'].includes(type)) {
+  if (!['launcher', 'client', 'jre', 'assets'].includes(artifactType)) {
     return res.status(403).json({ ok: false, error: 'Unsupported artifact type.' });
   }
 
@@ -52,23 +52,23 @@ export default async function handler(req, res) {
 
     // Security checks ONLY for non-public artifacts
     if (!isPublicType) {
-      if (payload.ip && String(payload.ip).trim() !== ip) {
+      if (tokenPayload.ip && String(tokenPayload.ip).trim() !== ip) {
         return res.status(403).json({ ok: false, error: 'Download token IP mismatch.' });
       }
 
-      const usedTokenKey = createHash('sha256').update(`${uid}:${jti}`, 'utf8').digest('hex');
+      const usedTokenKey = createHash('sha256').update(`${userId}:${tokenId}`, 'utf8').digest('hex');
       const usedSnapshot = await get(ref(db, `used_download_tokens/${usedTokenKey}`));
       if (usedSnapshot.exists()) {
         return res.status(403).json({ ok: false, error: 'Download token already used.' });
       }
 
-      const userSnapshot = await get(ref(db, `users/${uid}`));
+      const userSnapshot = await get(ref(db, `users/${userId}`));
       const user = userSnapshot.exists() ? (userSnapshot.val() || {}) : {};
       if (user.banned === true) {
         return res.status(403).json({ ok: false, error: 'Account is banned.' });
       }
 
-      const entitlement = await getEntitlement(uid);
+      const entitlement = await getEntitlement(userId);
       const entitlementState = resolveEntitlementState(user, entitlement);
       if (!entitlementState.active) {
         return res.status(403).json({ ok: false, error: 'Subscription inactive.' });
@@ -76,15 +76,15 @@ export default async function handler(req, res) {
 
       // Mark token as used
       await set(ref(db, `used_download_tokens/${usedTokenKey}`), {
-        uid,
-        type,
-        jti,
+        uid: userId,
+        type: artifactType,
+        jti: tokenId,
         usedAt: Date.now(),
         ip
       });
     }
 
-    const artifact = readArtifactMeta(type);
+    const artifact = readArtifactMeta(artifactType);
     if (!fs.existsSync(artifact.absolutePath)) {
       return res.status(404).json({ ok: false, error: 'Artifact not found.' });
     }
@@ -96,8 +96,8 @@ export default async function handler(req, res) {
     res.setHeader('X-Artifact-Version', artifact.version);
     res.setHeader('X-Artifact-Sha256', artifact.hash);
     await writeAuditLog('artifact_download_started', {
-      uid,
-      type,
+      uid: userId,
+      type: artifactType,
       artifactName: artifact.fileName,
       ip
     });
