@@ -22,6 +22,7 @@ export default async function handler(req, res) {
   let type = String(req.query.type || '').trim();
   let uid = 'public';
   let jti = 'public-jti';
+  let payload = {};
 
   const isPublicType = ['jre', 'assets'].includes(type);
 
@@ -32,7 +33,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ ok: false, error: verified.message || 'Download link is invalid.' });
     }
 
-    const payload = verified.payload || {};
+    payload = verified.payload || {};
     type = String(payload.type || '').trim();
     uid = String(payload.uid || '').trim();
     jti = String(payload.jti || '').trim();
@@ -48,25 +49,39 @@ export default async function handler(req, res) {
 
   try {
     const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
-    if (payload.ip && String(payload.ip).trim() !== ip) {
-      return res.status(403).json({ ok: false, error: 'Download token IP mismatch.' });
-    }
 
-    const usedTokenKey = createHash('sha256').update(`${uid}:${jti}`, 'utf8').digest('hex');
-    const usedSnapshot = await get(ref(db, `used_download_tokens/${usedTokenKey}`));
-    if (usedSnapshot.exists()) {
-      return res.status(403).json({ ok: false, error: 'Download token already used.' });
-    }
+    // Security checks ONLY for non-public artifacts
+    if (!isPublicType) {
+      if (payload.ip && String(payload.ip).trim() !== ip) {
+        return res.status(403).json({ ok: false, error: 'Download token IP mismatch.' });
+      }
 
-    const userSnapshot = await get(ref(db, `users/${uid}`));
-    const user = userSnapshot.exists() ? (userSnapshot.val() || {}) : {};
-    if (user.banned === true) {
-      return res.status(403).json({ ok: false, error: 'Account is banned.' });
-    }
-    const entitlement = await getEntitlement(uid);
-    const entitlementState = resolveEntitlementState(user, entitlement);
-    if (!entitlementState.active) {
-      return res.status(403).json({ ok: false, error: 'Subscription inactive.' });
+      const usedTokenKey = createHash('sha256').update(`${uid}:${jti}`, 'utf8').digest('hex');
+      const usedSnapshot = await get(ref(db, `used_download_tokens/${usedTokenKey}`));
+      if (usedSnapshot.exists()) {
+        return res.status(403).json({ ok: false, error: 'Download token already used.' });
+      }
+
+      const userSnapshot = await get(ref(db, `users/${uid}`));
+      const user = userSnapshot.exists() ? (userSnapshot.val() || {}) : {};
+      if (user.banned === true) {
+        return res.status(403).json({ ok: false, error: 'Account is banned.' });
+      }
+
+      const entitlement = await getEntitlement(uid);
+      const entitlementState = resolveEntitlementState(user, entitlement);
+      if (!entitlementState.active) {
+        return res.status(403).json({ ok: false, error: 'Subscription inactive.' });
+      }
+
+      // Mark token as used
+      await set(ref(db, `used_download_tokens/${usedTokenKey}`), {
+        uid,
+        type,
+        jti,
+        usedAt: Date.now(),
+        ip
+      });
     }
 
     const artifact = readArtifactMeta(type);
