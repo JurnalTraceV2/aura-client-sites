@@ -17,11 +17,23 @@
     },
     {
       "src": "api/launcher.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "artifacts/**",
+          "public/downloads/**"
+        ]
+      }
     },
     {
       "src": "api/download/artifact.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "artifacts/**",
+          "public/downloads/**"
+        ]
+      }
     },
     {
       "src": "api/client/mods/verify.js",

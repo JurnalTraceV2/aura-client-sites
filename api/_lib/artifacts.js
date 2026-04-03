@@ -38,10 +38,11 @@ function inferContentType(fileName, fallback) {
 }
 
 function clientConfig() {
-  const fileName = String(process.env.CLIENT_ARTIFACT_NAME || 'AuraClient.jar').trim();
+  const fileName = String(process.env.CLIENT_ARTIFACT_NAME || 'Aura.jar').trim();
   return {
     type: 'client',
-    absolutePath: toAbsolutePath(process.env.CLIENT_ARTIFACT_PATH || process.env.CLIENT_JAR_PATH || 'public/downloads/AuraClient.jar'),
+    externalUrl: String(process.env.CLIENT_ARTIFACT_URL || process.env.CLIENT_DOWNLOAD_URL || '').trim(),
+    absolutePath: toAbsolutePath(process.env.CLIENT_ARTIFACT_PATH || process.env.CLIENT_JAR_PATH || 'artifacts/Aura.jar'),
     fileName,
     version: String(process.env.CLIENT_VERSION || '1.0.0').trim(),
     hash: String(process.env.CLIENT_SHA256 || '').trim().toLowerCase(),
@@ -54,6 +55,7 @@ function launcherConfig() {
   const fileName = String(process.env.LAUNCHER_ARTIFACT_NAME || 'AuraLauncher.exe').trim();
   return {
     type: 'launcher',
+    externalUrl: String(process.env.LAUNCHER_ARTIFACT_URL || '').trim(),
     absolutePath: toAbsolutePath(process.env.LAUNCHER_ARTIFACT_PATH || 'artifacts/AuraLauncher.exe'),
     fileName,
     version: String(process.env.LAUNCHER_VERSION || '1.0.0').trim(),
@@ -111,7 +113,7 @@ export function getArtifactConfig(type) {
 
 export function readArtifactMeta(type) {
   const cfg = getArtifactConfig(type);
-  if (cfg.externalUrl && (type === 'jre' || type === 'assets')) {
+  if (cfg.externalUrl) {
     return {
       ...cfg,
       hash: cfg.hash || '',

@@ -84,7 +84,31 @@ export default async function handler(req, res) {
       });
     }
 
-    const artifact = readArtifactMeta(artifactType);
+    let artifact;
+    try {
+      artifact = readArtifactMeta(artifactType);
+    } catch (error) {
+      const message = String(error?.message || '');
+      if (message.includes('Artifact file not found') || message.includes('Artifact path is not configured')) {
+        return res.status(404).json({ ok: false, error: message || 'Artifact not found.' });
+      }
+      throw error;
+    }
+
+    if (artifact.isExternal && artifact.externalUrl) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('X-Artifact-Version', artifact.version);
+      res.setHeader('X-Artifact-Sha256', artifact.hash || '');
+      await writeAuditLog('artifact_download_redirected', {
+        uid: userId,
+        type: artifactType,
+        artifactName: artifact.fileName,
+        ip,
+        externalUrl: artifact.externalUrl
+      });
+      return res.redirect(302, artifact.externalUrl);
+    }
+
     if (!fs.existsSync(artifact.absolutePath)) {
       return res.status(404).json({ ok: false, error: 'Artifact not found.' });
     }
