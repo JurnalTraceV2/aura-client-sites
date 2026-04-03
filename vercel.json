@@ -8,43 +8,15 @@
       "use": "@vercel/node"
     },
     {
-      "src": "api/auth/refresh.js",
+      "src": "api/account.js",
       "use": "@vercel/node"
     },
     {
-      "src": "api/account/me.js",
+      "src": "api/payments.js",
       "use": "@vercel/node"
     },
     {
-      "src": "api/account/download/launcher-url.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/payments/create.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/payments/check.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/payments/yookassa-webhook.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/launcher/login.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/launcher/manifest.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/launcher/heartbeat.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/launcher/verify-session.js",
+      "src": "api/launcher.js",
       "use": "@vercel/node"
     },
     {
@@ -86,43 +58,43 @@
     },
     {
       "source": "/api/auth/refresh",
-      "destination": "/api/auth/refresh.js"
+      "destination": "/api/auth.js"
     },
     {
       "source": "/api/account/me",
-      "destination": "/api/account/me.js"
+      "destination": "/api/account.js"
     },
     {
       "source": "/api/account/download/launcher-url",
-      "destination": "/api/account/download/launcher-url.js"
+      "destination": "/api/account.js"
     },
     {
       "source": "/api/payments/create",
-      "destination": "/api/payments/create.js"
+      "destination": "/api/payments.js"
     },
     {
       "source": "/api/payments/check",
-      "destination": "/api/payments/check.js"
+      "destination": "/api/payments.js"
     },
     {
       "source": "/api/payments/webhook",
-      "destination": "/api/payments/yookassa-webhook.js"
+      "destination": "/api/payments.js"
     },
     {
       "source": "/api/launcher/login",
-      "destination": "/api/launcher/login.js"
+      "destination": "/api/launcher.js"
     },
     {
       "source": "/api/launcher/manifest",
-      "destination": "/api/launcher/manifest.js"
+      "destination": "/api/launcher.js"
     },
     {
       "source": "/api/launcher/heartbeat",
-      "destination": "/api/launcher/heartbeat.js"
+      "destination": "/api/launcher.js"
     },
     {
       "source": "/api/launcher/verify-session",
-      "destination": "/api/launcher/verify-session.js"
+      "destination": "/api/launcher.js"
     },
     {
       "source": "/api/download/artifact",

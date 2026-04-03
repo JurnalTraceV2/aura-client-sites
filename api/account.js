@@ -1,0 +1,27 @@
+import meHandler from './account/me.js';
+import launcherUrlHandler from './account/download/launcher-url.js';
+
+function getPathname(req) {
+  try {
+    return new URL(req.url || '/', `https://${req.headers.host || 'localhost'}`).pathname;
+  } catch {
+    return req.url || '/';
+  }
+}
+
+export default async function handler(req, res) {
+  const pathname = getPathname(req);
+
+  if (pathname.includes('/download/launcher-url')) {
+    return launcherUrlHandler(req, res);
+  }
+
+  if (pathname.endsWith('/me') || pathname === '/api/account' || pathname === '/api/account.js') {
+    return meHandler(req, res);
+  }
+
+  return res.status(404).json({
+    ok: false,
+    error: 'Account endpoint not found.'
+  });
+}

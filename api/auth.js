@@ -1,8 +1,22 @@
-﻿import launcherLogin from './launcher/login.js';
+import launcherLogin from './launcher/login.js';
+import refreshHandler from './auth/refresh.js';
+
+function getPathname(req) {
+  try {
+    return new URL(req.url || '/', `https://${req.headers.host || 'localhost'}`).pathname;
+  } catch {
+    return req.url || '/';
+  }
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
+  }
+
+  const pathname = getPathname(req);
+  if (pathname.includes('/refresh')) {
+    return refreshHandler(req, res);
   }
 
   const incoming = req.body && typeof req.body === 'object' ? req.body : {};
