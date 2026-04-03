@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { get, push, ref, remove, set, update } from 'firebase/database';
+import { get, push, ref, remove, runTransaction, set, update } from 'firebase/database';
 import { db, webApiKey } from './firebase.js';
 
 const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 24 * 60 * 60 * 1000);
@@ -65,9 +65,36 @@ export function normalizeHwidHash(hwidRaw) {
   return sha256Hex(trimmed);
 }
 
-export function generateUidShort(seed) {
-  const digest = sha256Hex(seed || crypto.randomBytes(8).toString('hex'));
-  return `AURA-${digest.slice(0, 6).toUpperCase()}`;
+export function normalizeUidShort(rawUidShort) {
+  const value = String(rawUidShort || '').trim();
+  if (!value) {
+    return '';
+  }
+
+  if (/^\d+$/.test(value)) {
+    return String(Number(value));
+  }
+
+  const legacyMatch = value.match(/(\d+)/);
+  if (legacyMatch) {
+    return String(Number(legacyMatch[1]));
+  }
+
+  return '';
+}
+
+async function allocateSequentialUidShort() {
+  const counterRef = ref(db, 'meta/counters/userUidShort');
+  const result = await runTransaction(counterRef, (currentValue) => {
+    const currentNumber = Number(currentValue || 0);
+    return currentNumber + 1;
+  });
+
+  if (!result.committed) {
+    throw new Error('Failed to allocate sequential uidShort.');
+  }
+
+  return String(Number(result.snapshot.val() || 0));
 }
 
 function resolveSubscriptionRaw(user) {
@@ -222,6 +249,7 @@ export async function ensureUserRecord(uid, email, username = '') {
 
   if (!snapshot.exists()) {
     const now = nowMs();
+    const uidShort = await allocateSequentialUidShort();
     const freshUser = {
       email,
       username: normalizedUsername || null,
@@ -230,7 +258,7 @@ export async function ensureUserRecord(uid, email, username = '') {
       subscription: 'none',
       subscriptionExpiresAt: null,
       hwidHash: null,
-      uidShort: generateUidShort(uid),
+      uidShort,
       resetCredits: FREE_HWID_RESETS_PER_WINDOW,
       resetWindowStart: now,
       banned: false,
@@ -260,8 +288,11 @@ export async function ensureUserRecord(uid, email, username = '') {
     patch.username = normalizedUsername;
   }
 
-  if (!existing.uidShort) {
-    patch.uidShort = generateUidShort(uid);
+  const normalizedExistingUidShort = normalizeUidShort(existing.uidShort);
+  if (!normalizedExistingUidShort) {
+    patch.uidShort = await allocateSequentialUidShort();
+  } else if (String(existing.uidShort) !== normalizedExistingUidShort) {
+    patch.uidShort = normalizedExistingUidShort;
   }
 
   if (existing.resetCredits === undefined || existing.resetCredits === null) {
@@ -359,16 +390,13 @@ export function evaluateHwidPolicy(user, hwidHash, now = nowMs()) {
   }
 
   if (resetCredits > 0) {
-    resetCredits -= 1;
     return {
-      allowed: true,
+      allowed: false,
       patch: {
-        hwidHash,
         resetCredits,
-        resetWindowStart,
-        lastHwidResetAt: now
+        resetWindowStart
       },
-      reason: 'free_reset_applied'
+      message: 'HWID mismatch. Free reset available in website dashboard only.'
     };
   }
 
@@ -383,6 +411,54 @@ export function evaluateHwidPolicy(user, hwidHash, now = nowMs()) {
       cooldownUntil: now + cooldownMs
     },
     message: 'HWID mismatch. Free reset exhausted. Buy paid HWID reset.'
+  };
+}
+
+export async function consumeManualHwidReset(uid, now = nowMs()) {
+  const targetUid = String(uid || '').trim();
+  if (!targetUid) {
+    return { ok: false, message: 'User id is required.' };
+  }
+
+  const userRef = ref(db, `users/${targetUid}`);
+  const snapshot = await get(userRef);
+  if (!snapshot.exists()) {
+    return { ok: false, message: 'User not found.' };
+  }
+
+  const user = snapshot.val() || {};
+  if (!user.hwidHash) {
+    return { ok: false, message: 'HWID is not bound.' };
+  }
+
+  let resetWindowStart = toNumber(user.resetWindowStart, 0);
+  let resetCredits = toNumber(user.resetCredits, FREE_HWID_RESETS_PER_WINDOW);
+
+  if (!resetWindowStart || now - resetWindowStart > HWID_RESET_WINDOW_MS) {
+    resetWindowStart = now;
+    resetCredits = FREE_HWID_RESETS_PER_WINDOW;
+  }
+
+  if (resetCredits <= 0) {
+    return { ok: false, message: 'No HWID reset credits available.' };
+  }
+
+  resetCredits -= 1;
+  await update(userRef, {
+    hwidHash: null,
+    resetCredits,
+    resetWindowStart,
+    lastHwidResetAt: now,
+    mismatchStrikes: 0,
+    cooldownUntil: 0
+  });
+
+  await revokeAllSessionsForUid(targetUid);
+
+  return {
+    ok: true,
+    remainingResetCredits: resetCredits,
+    resetWindowStart
   };
 }
 
@@ -497,8 +573,11 @@ export async function verifySessionToken(sessionToken, hwidHash, options = {}) {
   }
 
   const patch = {};
-  if (!user.uidShort) {
-    patch.uidShort = generateUidShort(session.uid);
+  const normalizedExistingUidShort = normalizeUidShort(user.uidShort);
+  if (!normalizedExistingUidShort) {
+    patch.uidShort = await allocateSequentialUidShort();
+  } else if (String(user.uidShort) !== normalizedExistingUidShort) {
+    patch.uidShort = normalizedExistingUidShort;
   }
 
   if (Object.keys(patch).length > 0) {
@@ -509,7 +588,7 @@ export async function verifySessionToken(sessionToken, hwidHash, options = {}) {
     await update(ref(db, `sessions/${tokenHash}`), { lastSeenAt: now });
   }
 
-  const uidShort = patch.uidShort || user.uidShort || generateUidShort(session.uid);
+  const uidShort = patch.uidShort || normalizedExistingUidShort;
 
   return {
     valid: true,

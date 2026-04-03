@@ -207,3 +207,20 @@ export async function requestLauncherDownloadLink() {
     version: String(payload.version || '')
   };
 }
+
+export async function requestManualHwidReset() {
+  const response = await authorizedFetch('/api/account/hwid-reset', {
+    method: 'POST',
+    body: JSON.stringify({})
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.ok) {
+    throw new Error(getApiErrorMessage(payload, response));
+  }
+
+  return {
+    message: String(payload.message || 'HWID reset completed.'),
+    remainingResetCredits: Number(payload.remainingResetCredits || 0)
+  };
+}

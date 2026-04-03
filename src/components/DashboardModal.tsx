@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, LogOut, Key, Shield, Clock, AlertCircle, RefreshCw, Download, Loader2 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
-import { auth, fetchAccountProfile, requestLauncherDownloadLink } from '../firebase';
+import { auth, fetchAccountProfile, requestLauncherDownloadLink, requestManualHwidReset } from '../firebase';
 
 interface DashboardModalProps {
   isOpen: boolean;
@@ -30,6 +30,9 @@ interface AccountProfile {
   banned: boolean;
   canDownloadLauncher: boolean;
   hwidHash: string | null;
+  resetCredits: number;
+  paidResetCredits: number;
+  lastHwidResetAt: number | null;
   payments: AccountPayment[];
 }
 
@@ -51,6 +54,9 @@ function normalizeProfile(payload: any): AccountProfile {
         ? source.canDownloadLauncher
         : String(source.subscription || 'none') !== 'none' && !Boolean(source.banned),
     hwidHash: source.hwidHash ?? null,
+    resetCredits: typeof source.resetCredits === 'number' ? source.resetCredits : 0,
+    paidResetCredits: typeof source.paidResetCredits === 'number' ? source.paidResetCredits : 0,
+    lastHwidResetAt: typeof source.lastHwidResetAt === 'number' ? source.lastHwidResetAt : null,
     payments: paymentsRaw.map((item: any) => ({
       paymentId: String(item?.paymentId || item?.id || ''),
       tier: item?.tier ?? null,
@@ -240,6 +246,25 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
   };
 
   const handleResetClick = () => {
+    if (!profile) return;
+
+    if (profile.resetCredits > 0) {
+      void (async () => {
+        try {
+          setLoading(true);
+          setError(null);
+          const result = await requestManualHwidReset();
+          setRuntimeNotice(`HWID reset completed. Remaining credits: ${result.remainingResetCredits}.`);
+          await loadProfile();
+        } catch (err: any) {
+          setError(err?.message || 'Failed to reset HWID.');
+        } finally {
+          setLoading(false);
+        }
+      })();
+      return;
+    }
+
     if (window.confirm('Сброс HWID открывает оплату тарифа "Сброс HWID". Продолжить?')) {
       onResetHwid?.();
       onClose();
@@ -319,6 +344,9 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                         {statusBadge.label}
                       </div>
                     </div>
+                    <p className="mt-3 text-xs text-zinc-400">
+                      Available reset credits: <span className="text-zinc-200 font-medium">{profile.resetCredits}</span>
+                    </p>
                   </div>
 
                   <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6">

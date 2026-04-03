@@ -55,6 +55,9 @@ export default async function handler(req, res) {
       banned: user.banned === true,
       canDownloadLauncher: user.banned !== true && subState.active === true,
       hwidHash: user.hwidHash || user.hwid || null,
+      resetCredits: Number(user.resetCredits || 0),
+      paidResetCredits: Number(user.paidResetCredits || 0),
+      lastHwidResetAt: user.lastHwidResetAt || null,
       payments: payments.slice(0, 10)
     });
   } catch (error) {
