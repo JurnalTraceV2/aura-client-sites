@@ -101,13 +101,6 @@ export default async function handler(req, res) {
       artifactName: artifact.fileName,
       ip
     });
-    await set(ref(db, `used_download_tokens/${usedTokenKey}`), {
-      uid,
-      type,
-      jti,
-      usedAt: Date.now(),
-      ip
-    });
 
     const stream = fs.createReadStream(artifact.absolutePath);
     stream.on('error', (error) => {
