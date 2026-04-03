@@ -4,19 +4,59 @@
   "outputDirectory": "dist",
   "builds": [
     {
-      "src": "api/launcher-auth.cjs",
+      "src": "api/auth.js",
       "use": "@vercel/node"
     },
     {
-      "src": "api/simple-auth.cjs",
+      "src": "api/auth/refresh.js",
       "use": "@vercel/node"
     },
     {
-      "src": "api/yookassa.cjs",
+      "src": "api/account/me.js",
       "use": "@vercel/node"
     },
     {
-      "src": "api/downloads.cjs",
+      "src": "api/account/download/launcher-url.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/payments/create.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/payments/check.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/payments/yookassa-webhook.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/launcher/login.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/launcher/manifest.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/launcher/heartbeat.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/launcher/verify-session.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/launcher/security-event.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/client/mods/verify.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/download/artifact.js",
       "use": "@vercel/node"
     },
     {
@@ -30,27 +70,63 @@
   "rewrites": [
     {
       "source": "/api/auth/login",
-      "destination": "/api/simple-auth.cjs"
+      "destination": "/api/auth.js"
     },
     {
-      "source": "/api/payments/(.*)",
-      "destination": "/api/yookassa.cjs"
+      "source": "/api/auth/refresh",
+      "destination": "/api/auth/refresh.js"
     },
     {
-      "source": "/api/launcher/(.*)",
-      "destination": "/api/launcher-auth.cjs"
+      "source": "/api/account/me",
+      "destination": "/api/account/me.js"
     },
     {
-      "source": "/api/client/(.*)",
-      "destination": "/api/launcher-auth.cjs"
+      "source": "/api/account/download/launcher-url",
+      "destination": "/api/account/download/launcher-url.js"
     },
     {
-      "source": "/api/account/(.*)",
-      "destination": "/api/simple-auth.cjs"
+      "source": "/api/payments/create",
+      "destination": "/api/payments/create.js"
+    },
+    {
+      "source": "/api/payments/check",
+      "destination": "/api/payments/check.js"
+    },
+    {
+      "source": "/api/payments/webhook",
+      "destination": "/api/payments/yookassa-webhook.js"
+    },
+    {
+      "source": "/api/launcher/login",
+      "destination": "/api/launcher/login.js"
+    },
+    {
+      "source": "/api/launcher/manifest",
+      "destination": "/api/launcher/manifest.js"
+    },
+    {
+      "source": "/api/launcher/heartbeat",
+      "destination": "/api/launcher/heartbeat.js"
+    },
+    {
+      "source": "/api/launcher/verify-session",
+      "destination": "/api/launcher/verify-session.js"
+    },
+    {
+      "source": "/api/launcher/security-event",
+      "destination": "/api/launcher/security-event.js"
+    },
+    {
+      "source": "/api/client/mods/verify",
+      "destination": "/api/client/mods/verify.js"
+    },
+    {
+      "source": "/api/download/artifact",
+      "destination": "/api/download/artifact.js"
     },
     {
       "source": "/downloads/(.*)",
-      "destination": "/api/downloads.cjs"
+      "destination": "/api/download/artifact.js"
     },
     {
       "source": "/offer",

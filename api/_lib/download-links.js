@@ -52,6 +52,7 @@ export function createDownloadToken(payload, ttlMs = DOWNLOAD_LINK_TTL_MS) {
   const expiresAt = Date.now() + ttlMs;
   const envelope = {
     ...payload,
+    jti: payload?.jti || crypto.randomUUID(),
     exp: expiresAt
   };
   const encoded = Buffer.from(JSON.stringify(envelope), 'utf8').toString('base64url');

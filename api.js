@@ -1,3 +1,4 @@
+﻿// DEPRECATED: non-canonical compatibility file. Production routing uses canonical API handlers in /api/* paths.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -102,9 +103,9 @@ const server = http.createServer((req, res) => {
         
         if (req.method === 'GET' && pathname === '/api/launcher/manifest') {
             const manifest = {
-                version: '1.16.5',
-                forge: '1.16.5-36.2.42',
-                minecraft: '1.16.5',
+                version: '1.21.4',
+                Fabric: '1.21.4-36.2.42',
+                minecraft: '1.21.4',
                 assets: '1.16',
                 downloads: {
                     client: {
@@ -113,8 +114,8 @@ const server = http.createServer((req, res) => {
                         size: 100000000
                     },
                     mods: {
-                        'clientguard-1.16.5.jar': {
-                            url: 'http://localhost:3000/downloads/mods/clientguard-1.16.5.jar',
+                        'aura-guard-fabric-1.21.4.jar': {
+                            url: 'http://localhost:3000/downloads/mods/aura-guard-fabric-1.21.4.jar',
                             sha256: 'test-hash',
                             size: 1000000,
                             required: true
@@ -132,7 +133,7 @@ const server = http.createServer((req, res) => {
                         '--username', 'TestUser',
                         '--uuid', 'test-uuid',
                         '--accessToken', 'test-token',
-                        '--version', '1.16.5',
+                        '--version', '1.21.4',
                         '--gameDir', 'game',
                         '--assetsDir', 'assets',
                         '--assetIndex', '1.16',
@@ -155,7 +156,7 @@ const server = http.createServer((req, res) => {
             parseBody(req, (data) => {
                 const { modsList } = data;
                 
-                const allowedMods = ['clientguard-1.16.5.jar', 'forge-1.16.5.jar'];
+                const allowedMods = ['aura-guard-fabric-1.21.4.jar', 'Fabric-1.21.4.jar'];
                 const unauthorizedMods = modsList ? modsList.filter(mod => !allowedMods.includes(mod.name)) : [];
                 
                 if (unauthorizedMods.length > 0) {
@@ -192,7 +193,7 @@ const server = http.createServer((req, res) => {
                 if (stat.isDirectory() && filePath.endsWith('downloads')) {
                     // List downloads
                     const files = fs.readdirSync(filePath);
-                    let html = '<!DOCTYPE html><html><head><title>Aura Downloads</title><style>body{font-family:Arial,sans-serif;margin:40px;background:#1a1a1a;color:#fff}h1{color:#00ff88}ul{list-style:none;padding:0}li{margin:10px 0;padding:15px;background:#2a2a2a;border-radius:8px}a{color:#00ff88;text-decoration:none;font-weight:bold}a:hover{color:#00ffaa}</style></head><body><h1>🚀 Aura Downloads</h1><ul>';
+                    let html = '<!DOCTYPE html><html><head><title>Aura Downloads</title><style>body{font-family:Arial,sans-serif;margin:40px;background:#1a1a1a;color:#fff}h1{color:#00ff88}ul{list-style:none;padding:0}li{margin:10px 0;padding:15px;background:#2a2a2a;border-radius:8px}a{color:#00ff88;text-decoration:none;font-weight:bold}a:hover{color:#00ffaa}</style></head><body><h1>рџљЂ Aura Downloads</h1><ul>';
                     files.forEach(file => {
                         const size = fs.statSync(path.join(filePath, file)).size;
                         const sizeMB = (size / 1024 / 1024).toFixed(2);
@@ -247,7 +248,7 @@ const dummyFiles = [
     'public/index.html',
     'public/downloads/AuraClient.jar',
     'public/downloads/AuraLauncher.exe',
-    'public/downloads/mods/clientguard-1.16.5.jar'
+    'public/downloads/mods/aura-guard-fabric-1.21.4.jar'
 ];
 
 dummyFiles.forEach(file => {
@@ -264,8 +265,10 @@ dummyFiles.forEach(file => {
 
 // Start server
 server.listen(PORT, () => {
-    console.log(`🚀 Aura API Server running on http://localhost:${PORT}`);
-    console.log(`📦 Downloads: http://localhost:${PORT}/downloads`);
-    console.log(`🔐 Test user: test / test123`);
-    console.log(`🎮 Ready for launcher connections!`);
+    console.log(`рџљЂ Aura API Server running on http://localhost:${PORT}`);
+    console.log(`рџ“¦ Downloads: http://localhost:${PORT}/downloads`);
+    console.log(`рџ”ђ Test user: test / test123`);
+    console.log(`рџЋ® Ready for launcher connections!`);
 });
+
+

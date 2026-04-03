@@ -1,3 +1,4 @@
+﻿// DEPRECATED: non-canonical compatibility file. Production routing uses canonical API handlers in /api/* paths.
 const express = require('express');
 const crypto = require('crypto');
 const fs = require('fs').promises;
@@ -136,8 +137,8 @@ app.post('/api/client/mods/verify', authenticateToken, (req, res) => {
     
     // Verify mods against whitelist
     const allowedMods = [
-        'clientguard-1.16.5.jar',
-        'optifine-1.16.5.jar',
+        'aura-guard-fabric-1.21.4.jar',
+        'aura-guard-fabric-1.21.4.jar',
         'aura-client-core.jar'
     ];
     
@@ -156,13 +157,13 @@ app.post('/api/client/mods/verify', authenticateToken, (req, res) => {
 // Generate manifest function
 async function generateManifest(subscription) {
     const baseManifest = {
-        version: '1.16.5',
-        forge: '1.16.5-36.2.42',
-        minecraft: '1.16.5',
+        version: '1.21.4',
+        Fabric: '1.21.4-36.2.42',
+        minecraft: '1.21.4',
         assets: '1.16',
         downloads: {
-            forge: {
-                url: 'https://maven.minecraftforge.net/net/minecraftforge/forge/1.16.5-36.2.42/forge-1.16.5-36.2.42-installer.jar',
+            Fabric: {
+                url: 'https://maven.minecraftFabric.net/net/minecraftFabric/Fabric/1.21.4-36.2.42/Fabric-1.21.4-36.2.42-installer.jar',
                 sha256: '...', // Actual SHA256
                 size: 8234567
             },
@@ -225,8 +226,8 @@ async function generateManifest(subscription) {
 // Get libraries manifest
 async function getLibrariesManifest() {
     return {
-        'net.minecraftforge:forge:1.16.5-36.2.42': {
-            url: 'https://libraries.minecraft.net/net/minecraftforge/forge/1.16.5-36.2.42/forge-1.16.5-36.2.42-universal.jar',
+        'net.minecraftFabric:Fabric:1.21.4-36.2.42': {
+            url: 'https://libraries.minecraft.net/net/minecraftFabric/Fabric/1.21.4-36.2.42/Fabric-1.21.4-36.2.42-universal.jar',
             sha256: '...',
             size: 4567890
         },
@@ -242,8 +243,8 @@ async function getLibrariesManifest() {
 // Get mods manifest based on subscription
 async function getModsManifest(subscription) {
     const baseMods = {
-        'clientguard-1.16.5.jar': {
-            url: 'https://aura-client-sites.vercel.app/downloads/mods/clientguard-1.16.5.jar',
+        'aura-guard-fabric-1.21.4.jar': {
+            url: 'https://aura-client-sites.vercel.app/downloads/mods/aura-guard-fabric-1.21.4.jar',
             sha256: '...', // Actual SHA256
             size: 234567,
             required: true,
@@ -261,8 +262,8 @@ async function getModsManifest(subscription) {
                 required: true,
                 priority: 999
             },
-            'optifine-1.16.5.jar': {
-                url: 'https://aura-client-sites.vercel.app/downloads/mods/optifine-1.16.5.jar',
+            'aura-guard-fabric-1.21.4.jar': {
+                url: 'https://aura-client-sites.vercel.app/downloads/mods/aura-guard-fabric-1.21.4.jar',
                 sha256: '...', // Actual SHA256
                 size: 2345678,
                 required: false,
@@ -287,3 +288,5 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
+
+

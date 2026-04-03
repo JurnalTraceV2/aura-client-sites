@@ -1,7 +1,7 @@
 import { get, ref } from 'firebase/database';
 import { db } from '../_lib/firebase.js';
 import { verifyRequestAuth } from '../_lib/auth.js';
-import { ensureUserRecord, getSubscriptionState } from '../_lib/license.js';
+import { ensureUserRecord, getEntitlement, resolveEntitlementState } from '../_lib/license.js';
 import { methodNotAllowed, serverError, unauthorized } from '../_lib/http.js';
 
 export default async function handler(req, res) {
@@ -19,7 +19,8 @@ export default async function handler(req, res) {
 
     const userSnapshot = await get(ref(db, `users/${auth.uid}`));
     const user = userSnapshot.exists() ? (userSnapshot.val() || {}) : {};
-    const subState = getSubscriptionState(user);
+    const entitlement = await getEntitlement(auth.uid);
+    const subState = resolveEntitlementState(user, entitlement);
 
     const paymentsSnapshot = await get(ref(db, 'payments'));
     const payments = [];
@@ -47,8 +48,9 @@ export default async function handler(req, res) {
       uid: auth.uid,
       email: user.email || auth.email || null,
       uidShort: user.uidShort || null,
-      subscription: subState.subscription,
-      subscriptionExpiresAt: subState.subscriptionExpiresAt,
+      subscription: subState.plan,
+      subscriptionExpiresAt: subState.expiresAt,
+      entitlementState: subState.state,
       banned: user.banned === true,
       canDownloadLauncher: user.banned !== true && subState.active === true,
       hwidHash: user.hwidHash || user.hwid || null,

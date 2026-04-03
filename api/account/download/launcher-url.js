@@ -2,8 +2,9 @@ import { get, ref } from 'firebase/database';
 import { db } from '../../_lib/firebase.js';
 import { verifyRequestAuth } from '../../_lib/auth.js';
 import { getArtifactConfig } from '../../_lib/artifacts.js';
-import { forbidden, getRequestBaseUrl, methodNotAllowed, unauthorized } from '../../_lib/http.js';
-import { getSubscriptionState, writeAuditLog } from '../../_lib/license.js';
+import { forbidden, methodNotAllowed, unauthorized } from '../../_lib/http.js';
+import { getEntitlement, resolveEntitlementState, writeAuditLog } from '../../_lib/license.js';
+import { buildArtifactDownloadUrl, createDownloadToken } from '../../_lib/download-links.js';
 
 const LAUNCHER_LINK_TTL_MS = Number(process.env.LAUNCHER_LINK_TTL_MS || 5 * 60 * 1000);
 
@@ -13,6 +14,9 @@ export default async function handler(req, res) {
   }
 
   try {
+    const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown')
+      .split(',')[0]
+      .trim();
     const auth = await verifyRequestAuth(req);
     if (!auth.ok) {
       return unauthorized(res, auth.message || 'Unauthorized.');
@@ -23,17 +27,20 @@ export default async function handler(req, res) {
     if (user.banned === true) {
       return forbidden(res, 'Account is banned.');
     }
-    const subState = getSubscriptionState(user);
-    if (!subState.active) {
+    const entitlement = await getEntitlement(auth.uid);
+    const entitlementState = resolveEntitlementState(user, entitlement);
+    if (!entitlementState.active) {
       return forbidden(res, 'Subscription inactive.');
     }
 
     const launcherArtifact = getArtifactConfig('launcher');
-    const baseUrl = getRequestBaseUrl(req);
-    if (!baseUrl) {
-      throw new Error('Cannot determine public base URL for launcher download.');
-    }
-    const url = `${baseUrl}/downloads/AuraLauncher.exe`;
+    const token = createDownloadToken({
+      type: 'launcher',
+      uid: auth.uid,
+      artifactName: launcherArtifact.fileName,
+      ip
+    });
+    const url = buildArtifactDownloadUrl(req, token.token);
     const expiresAt = Date.now() + LAUNCHER_LINK_TTL_MS;
 
     await writeAuditLog('launcher_download_link_issued', {
@@ -48,7 +55,8 @@ export default async function handler(req, res) {
       url,
       expiresAt,
       sha256: launcherArtifact.hash || '',
-      version: launcherArtifact.version
+      version: launcherArtifact.version,
+      artifactName: launcherArtifact.fileName
     });
   } catch (error) {
     console.error('account/download/launcher-url error:', error);

@@ -1,3 +1,4 @@
+﻿// DEPRECATED: non-canonical compatibility file. Production routing uses canonical API handlers in /api/* paths.
 const express = require('express');
 const path = require('path');
 const crypto = require('crypto');
@@ -67,9 +68,9 @@ app.post('/api/auth/login', (req, res) => {
 app.get('/api/launcher/manifest', (req, res) => {
     // Simple manifest for testing
     const manifest = {
-        version: '1.16.5',
-        forge: '1.16.5-36.2.42',
-        minecraft: '1.16.5',
+        version: '1.21.4',
+        Fabric: '1.21.4-36.2.42',
+        minecraft: '1.21.4',
         assets: '1.16',
         downloads: {
             client: {
@@ -78,8 +79,8 @@ app.get('/api/launcher/manifest', (req, res) => {
                 size: 100000000
             },
             mods: {
-                'clientguard-1.16.5.jar': {
-                    url: 'http://localhost:3000/downloads/mods/clientguard-1.16.5.jar',
+                'aura-guard-fabric-1.21.4.jar': {
+                    url: 'http://localhost:3000/downloads/mods/aura-guard-fabric-1.21.4.jar',
                     sha256: 'test-hash',
                     size: 1000000,
                     required: true
@@ -97,7 +98,7 @@ app.get('/api/launcher/manifest', (req, res) => {
                 '--username', 'TestUser',
                 '--uuid', 'test-uuid',
                 '--accessToken', 'test-token',
-                '--version', '1.16.5',
+                '--version', '1.21.4',
                 '--gameDir', 'game',
                 '--assetsDir', 'assets',
                 '--assetIndex', '1.16',
@@ -117,7 +118,7 @@ app.post('/api/launcher/heartbeat', (req, res) => {
 app.post('/api/client/mods/verify', (req, res) => {
     const { modsList } = req.body;
     
-    const allowedMods = ['clientguard-1.16.5.jar', 'forge-1.16.5.jar'];
+    const allowedMods = ['aura-guard-fabric-1.21.4.jar', 'Fabric-1.21.4.jar'];
     const unauthorizedMods = modsList.filter(mod => !allowedMods.includes(mod.name));
     
     if (unauthorizedMods.length > 0) {
@@ -137,7 +138,7 @@ if (!fs.existsSync(modsDir)) {
 }
 
 // Create dummy mod files
-const clientGuardPath = path.join(modsDir, 'clientguard-1.16.5.jar');
+const clientGuardPath = path.join(modsDir, 'aura-guard-fabric-1.21.4.jar');
 if (!fs.existsSync(clientGuardPath)) {
     fs.writeFileSync(clientGuardPath, 'dummy clientguard file');
 }
@@ -148,3 +149,5 @@ app.listen(PORT, () => {
     console.log(`Test user: test / test123`);
     console.log(`Downloads available at: http://localhost:${PORT}/downloads`);
 });
+
+

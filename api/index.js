@@ -1,3 +1,4 @@
+﻿// DEPRECATED: non-canonical compatibility file. Production routing uses canonical API handlers in /api/* paths.
 const crypto = require('crypto');
 
 // Simple user database
@@ -83,9 +84,9 @@ module.exports = function handler(req, res) {
         
         if (req.method === 'GET' && pathname === '/api/launcher/manifest') {
             const manifest = {
-                version: '1.16.5',
-                forge: '1.16.5-36.2.42',
-                minecraft: '1.16.5',
+                version: '1.21.4',
+                Fabric: '1.21.4-36.2.42',
+                minecraft: '1.21.4',
                 assets: '1.16',
                 downloads: {
                     client: {
@@ -94,8 +95,8 @@ module.exports = function handler(req, res) {
                         size: 100000000
                     },
                     mods: {
-                        'clientguard-1.16.5.jar': {
-                            url: 'https://aura-client-sites.vercel.app/downloads/mods/clientguard-1.16.5.jar',
+                        'aura-guard-fabric-1.21.4.jar': {
+                            url: 'https://aura-client-sites.vercel.app/downloads/mods/aura-guard-fabric-1.21.4.jar',
                             sha256: 'test-hash',
                             size: 1000000,
                             required: true
@@ -113,7 +114,7 @@ module.exports = function handler(req, res) {
                         '--username', 'TestUser',
                         '--uuid', 'test-uuid',
                         '--accessToken', 'test-token',
-                        '--version', '1.16.5',
+                        '--version', '1.21.4',
                         '--gameDir', 'game',
                         '--assetsDir', 'assets',
                         '--assetIndex', '1.16',
@@ -142,7 +143,7 @@ module.exports = function handler(req, res) {
                     const data = JSON.parse(body);
                     const { modsList } = data;
                     
-                    const allowedMods = ['clientguard-1.16.5.jar', 'forge-1.16.5.jar'];
+                    const allowedMods = ['aura-guard-fabric-1.21.4.jar', 'Fabric-1.21.4.jar'];
                     const unauthorizedMods = modsList ? modsList.filter(mod => !allowedMods.includes(mod.name)) : [];
                     
                     if (unauthorizedMods.length > 0) {
@@ -169,3 +170,5 @@ module.exports = function handler(req, res) {
     res.writeHead(404, { 'Content-Type': 'text/html' });
     res.end('<html><body><h1>404 Not Found</h1></body></html>');
 };
+
+

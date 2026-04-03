@@ -5,10 +5,12 @@ import {
   createSession,
   ensureUserRecord,
   evaluateHwidPolicy,
-  getSubscriptionState,
+  getEntitlement,
+  resolveEntitlementState,
   normalizeHwidHash,
   writeAuditLog
 } from '../_lib/license.js';
+import { createAccessToken, createRefreshToken } from '../_lib/tokens.js';
 import {
   badRequest,
   methodNotAllowed,
@@ -38,6 +40,8 @@ export default async function handler(req, res) {
   const password = String(body.password || '');
   const launcherVersion = String(body.launcherVersion || 'unknown').trim();
   const hwidHash = normalizeHwidHash(body.hwidHash || body.hwid || '');
+  const deviceId = String(body.deviceId || '').trim().slice(0, 128) || hwidHash.slice(0, 16);
+  const deviceFingerprintHash = normalizeHwidHash(body.deviceProof || body.deviceFingerprintHash || '');
 
   if (!email || !password || !hwidHash) {
     return badRequest(res, 'email, password and hwidHash are required.');
@@ -64,15 +68,25 @@ export default async function handler(req, res) {
       return res.status(403).json({ ok: false, error: 'User is banned.' });
     }
 
-    const subscriptionState = getSubscriptionState(user);
-    if (!subscriptionState.active) {
+    const entitlement = await getEntitlement(auth.uid);
+    const entitlementState = resolveEntitlementState(user, entitlement);
+    if (!entitlementState.active) {
       await writeAuditLog('launcher_login_blocked_subscription', {
         ip,
         uid: auth.uid,
         email,
-        subscription: user.subscription || 'none'
+        subscription: entitlementState.plan || user.subscription || 'none'
       });
       return res.status(403).json({ ok: false, error: 'Subscription inactive.' });
+    }
+
+    const cooldownUntil = Number(user.cooldownUntil || 0);
+    if (cooldownUntil > Date.now()) {
+      return res.status(429).json({
+        ok: false,
+        error: 'Too many risky login attempts.',
+        retryAfterMs: cooldownUntil - Date.now()
+      });
     }
 
     const hwidDecision = evaluateHwidPolicy(user, hwidHash);
@@ -91,8 +105,27 @@ export default async function handler(req, res) {
       return res.status(403).json({ ok: false, error: hwidDecision.message });
     }
 
-    const session = await createSession(auth.uid, hwidHash, launcherVersion);
+    const session = await createSession(auth.uid, hwidHash, launcherVersion, deviceId, deviceFingerprintHash);
+    await update(ref(db, `users/${auth.uid}`), {
+      lastLoginAt: Date.now(),
+      mismatchStrikes: 0,
+      cooldownUntil: 0
+    });
     const uidShort = (hwidDecision.patch.uidShort || user.uidShort || 'AURA-000000').toUpperCase();
+    const tokenVersion = Number(user.tokenVersion || 1);
+    const access = createAccessToken({
+      uid: auth.uid,
+      uidShort,
+      sid: session.sessionTokenHash,
+      deviceId,
+      tokenVersion
+    });
+    const refresh = await createRefreshToken({
+      uid: auth.uid,
+      sid: session.sessionTokenHash,
+      deviceId,
+      tokenVersion
+    });
 
     await writeAuditLog('launcher_login_success', {
       ip,
@@ -108,11 +141,18 @@ export default async function handler(req, res) {
       ok: true,
       sessionToken: session.sessionToken,
       uidShort,
-      subscription: subscriptionState.subscription,
+      subscription: entitlementState.plan,
       sessionExpiresAt: session.sessionExpiresAt,
+      accessToken: access.token,
+      refreshToken: refresh.token,
+      accessTokenExpiresAt: access.exp * 1000,
+      refreshTokenExpiresAt: refresh.exp * 1000,
       user: {
         uid: auth.uid,
         email: auth.email || email
+      },
+      device: {
+        deviceId
       }
     });
   } catch (error) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { 
   Sword, 
@@ -41,7 +41,7 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     if (params.get('paymentReturn') === '1') {
       setHasPaymentReturn(true);
-      setPaymentNotice('Платеж создан. Обновляем статус подписки...');
+      setPaymentNotice('РџР»Р°С‚РµР¶ СЃРѕР·РґР°РЅ. РћР±РЅРѕРІР»СЏРµРј СЃС‚Р°С‚СѓСЃ РїРѕРґРїРёСЃРєРё...');
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -66,8 +66,8 @@ export default function App() {
 
   const handleResetHwidBuy = () => {
     setSelectedTierId('hwid_reset');
-    setSelectedTier('Сброс HWID');
-    setSelectedPrice('499 ₽');
+    setSelectedTier('РЎР±СЂРѕСЃ HWID');
+    setSelectedPrice('499 в‚Ѕ');
     setIsPaymentOpen(true);
   };
 
@@ -83,8 +83,8 @@ export default function App() {
             <span className="font-display font-bold text-2xl tracking-wider">AURA</span>
           </div>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
-            <a href="#features" className="hover:text-white transition-colors">Функции</a>
-            <a href="#pricing" className="hover:text-white transition-colors">Тарифы</a>
+            <a href="#features" className="hover:text-white transition-colors">Р¤СѓРЅРєС†РёРё</a>
+            <a href="#pricing" className="hover:text-white transition-colors">РўР°СЂРёС„С‹</a>
             <div className="flex items-center gap-3 pl-8 border-l border-white/10">
               <SocialIcon href="https://discord.gg/9XYURMb5" icon={<DiscordIcon />} hoverColor="hover:text-[#5865F2] hover:bg-[#5865F2]/10 hover:border-[#5865F2]/50" />
               <SocialIcon href="https://t.me/AuraClients" icon={<TelegramIcon />} hoverColor="hover:text-[#2AABEE] hover:bg-[#2AABEE]/10 hover:border-[#2AABEE]/50" />
@@ -98,7 +98,7 @@ export default function App() {
               className="bg-white text-black px-6 py-2.5 rounded-full font-bold text-sm hover:bg-zinc-200 hover:scale-105 transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
             >
               <User className="w-4 h-4" />
-              Личный кабинет
+              Р›РёС‡РЅС‹Р№ РєР°Р±РёРЅРµС‚
             </button>
           ) : (
             <button 
@@ -106,7 +106,7 @@ export default function App() {
               className="bg-white text-black px-6 py-2.5 rounded-full font-bold text-sm hover:bg-zinc-200 hover:scale-105 transition-all flex items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
             >
               <ShoppingCart className="w-4 h-4" />
-              Войти
+              Р’РѕР№С‚Рё
             </button>
           )}
         </div>
@@ -133,25 +133,25 @@ export default function App() {
                 className="inline-flex items-center gap-2 py-1.5 px-4 rounded-full bg-white/5 border border-white/10 text-sm font-medium mb-8 backdrop-blur-md"
               >
                 <Sparkles className="w-4 h-4 text-zinc-300" />
-                <span className="text-zinc-300">Версия 1.16.5 • Обновление 3.0</span>
+                <span className="text-zinc-300">Р’РµСЂСЃРёСЏ 1.21.4 вЂў РћР±РЅРѕРІР»РµРЅРёРµ 3.0</span>
               </motion.div>
               
               <h1 className="text-6xl md:text-8xl font-display font-black tracking-tight mb-8 leading-[1.1]">
-                Доминируй в pvp <br />
+                Р”РѕРјРёРЅРёСЂСѓР№ РІ pvp <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-zinc-200 to-zinc-500 filter drop-shadow-[0_0_30px_rgba(255,255,255,0.2)]">
                   AURA CLIENT
                 </span>
               </h1>
               
               <p className="text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto lg:mx-0 mb-10 leading-relaxed">
-                Приватный клиент для Minecraft 1.16.5 с лучшей KillAura на рынке. 
-                Уничтожай игроков, выигрывай дуэли и будь на шаг впереди благодаря 
-                умным алгоритмам обхода античитов.
+                РџСЂРёРІР°С‚РЅС‹Р№ РєР»РёРµРЅС‚ РґР»СЏ Minecraft 1.21.4 СЃ Р»СѓС‡С€РµР№ KillAura РЅР° СЂС‹РЅРєРµ. 
+                РЈРЅРёС‡С‚РѕР¶Р°Р№ РёРіСЂРѕРєРѕРІ, РІС‹РёРіСЂС‹РІР°Р№ РґСѓСЌР»Рё Рё Р±СѓРґСЊ РЅР° С€Р°Рі РІРїРµСЂРµРґРё Р±Р»Р°РіРѕРґР°СЂСЏ 
+                СѓРјРЅС‹Рј Р°Р»РіРѕСЂРёС‚РјР°Рј РѕР±С…РѕРґР° Р°РЅС‚РёС‡РёС‚РѕРІ.
               </p>
               
               <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
                 <a href="#pricing" className="w-full sm:w-auto px-8 py-4 rounded-full bg-white text-black font-bold text-lg hover:shadow-[0_0_40px_rgba(255,255,255,0.5)] hover:scale-105 transition-all flex items-center justify-center gap-2">
-                  Приобрести доступ
+                  РџСЂРёРѕР±СЂРµСЃС‚Рё РґРѕСЃС‚СѓРї
                   <ChevronRight className="w-5 h-5" />
                 </a>
                 <a 
@@ -161,7 +161,7 @@ export default function App() {
                   className="w-full sm:w-auto px-8 py-4 rounded-full bg-zinc-900/80 backdrop-blur-md border border-zinc-800 text-white font-bold text-lg hover:bg-zinc-800 hover:border-zinc-600 transition-all text-center flex items-center justify-center gap-3 group"
                 >
                   <Youtube className="w-6 h-6 text-zinc-400 group-hover:text-red-500 transition-colors" />
-                  Смотреть видео
+                  РЎРјРѕС‚СЂРµС‚СЊ РІРёРґРµРѕ
                 </a>
               </div>
             </motion.div>
@@ -206,8 +206,8 @@ export default function App() {
             viewport={{ once: true }}
             className="text-center mb-20"
           >
-            <h2 className="text-4xl md:text-6xl font-display font-black mb-6">Бескомпромиссное преимущество</h2>
-            <p className="text-xl text-zinc-400 max-w-2xl mx-auto">Мы собрали лучшие функции для комфортной игры и доминации на серверах.</p>
+            <h2 className="text-4xl md:text-6xl font-display font-black mb-6">Р‘РµСЃРєРѕРјРїСЂРѕРјРёСЃСЃРЅРѕРµ РїСЂРµРёРјСѓС‰РµСЃС‚РІРѕ</h2>
+            <p className="text-xl text-zinc-400 max-w-2xl mx-auto">РњС‹ СЃРѕР±СЂР°Р»Рё Р»СѓС‡С€РёРµ С„СѓРЅРєС†РёРё РґР»СЏ РєРѕРјС„РѕСЂС‚РЅРѕР№ РёРіСЂС‹ Рё РґРѕРјРёРЅР°С†РёРё РЅР° СЃРµСЂРІРµСЂР°С….</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -215,37 +215,37 @@ export default function App() {
               delay={0.1}
               icon={<Sword className="w-7 h-7 text-white" />}
               title="Smart KillAura"
-              description="Умная аура с настройкой FOV, дистанции и приоритета целей. деально бьет игроков, обходит популярные античиты (Matrix, Vulcan, Grim)."
+              description="РЈРјРЅР°СЏ Р°СѓСЂР° СЃ РЅР°СЃС‚СЂРѕР№РєРѕР№ FOV, РґРёСЃС‚Р°РЅС†РёРё Рё РїСЂРёРѕСЂРёС‚РµС‚Р° С†РµР»РµР№. РґРµР°Р»СЊРЅРѕ Р±СЊРµС‚ РёРіСЂРѕРєРѕРІ, РѕР±С…РѕРґРёС‚ РїРѕРїСѓР»СЏСЂРЅС‹Рµ Р°РЅС‚РёС‡РёС‚С‹ (Matrix, Vulcan, Grim)."
             />
             <FeatureCard 
               delay={0.2}
               icon={<ShieldAlert className="w-7 h-7 text-zinc-300" />}
               title="AutoTotem & PvP Helper"
-              description="Моментальный свап тотемов, авто-зелья, авто-броня и автоматическое уклонение от стрел в PvP."
+              description="РњРѕРјРµРЅС‚Р°Р»СЊРЅС‹Р№ СЃРІР°Рї С‚РѕС‚РµРјРѕРІ, Р°РІС‚Рѕ-Р·РµР»СЊСЏ, Р°РІС‚Рѕ-Р±СЂРѕРЅСЏ Рё Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРѕРµ СѓРєР»РѕРЅРµРЅРёРµ РѕС‚ СЃС‚СЂРµР» РІ PvP."
             />
             <FeatureCard 
               delay={0.3}
               icon={<Crosshair className="w-7 h-7 text-zinc-400" />}
               title="Advanced ESP"
-              description="Подсветка игроков, их брони, здоровья и предметов сквозь стены. Полностью настраиваемые цвета."
+              description="РџРѕРґСЃРІРµС‚РєР° РёРіСЂРѕРєРѕРІ, РёС… Р±СЂРѕРЅРё, Р·РґРѕСЂРѕРІСЊСЏ Рё РїСЂРµРґРјРµС‚РѕРІ СЃРєРІРѕР·СЊ СЃС‚РµРЅС‹. РџРѕР»РЅРѕСЃС‚СЊСЋ РЅР°СЃС‚СЂР°РёРІР°РµРјС‹Рµ С†РІРµС‚Р°."
             />
             <FeatureCard 
               delay={0.4}
               icon={<Zap className="w-7 h-7 text-white" />}
               title="Velocity / AntiKB"
-              description="Настраиваемое откидывание. Не дай врагам скинуть тебя в бездну или сбить комбо."
+              description="РќР°СЃС‚СЂР°РёРІР°РµРјРѕРµ РѕС‚РєРёРґС‹РІР°РЅРёРµ. РќРµ РґР°Р№ РІСЂР°РіР°Рј СЃРєРёРЅСѓС‚СЊ С‚РµР±СЏ РІ Р±РµР·РґРЅСѓ РёР»Рё СЃР±РёС‚СЊ РєРѕРјР±Рѕ."
             />
             <FeatureCard 
               delay={0.5}
               icon={<Cpu className="w-7 h-7 text-zinc-300" />}
-              title="Оптимизация FPS"
-              description="Встроенные патчи рендеринга. Клиент выдает больше FPS в замесах, чем OptiFine или Sodium."
+              title="РћРїС‚РёРјРёР·Р°С†РёСЏ FPS"
+              description="Р’СЃС‚СЂРѕРµРЅРЅС‹Рµ РїР°С‚С‡Рё СЂРµРЅРґРµСЂРёРЅРіР°. РљР»РёРµРЅС‚ РІС‹РґР°РµС‚ Р±РѕР»СЊС€Рµ FPS РІ Р·Р°РјРµСЃР°С…, С‡РµРј OptiFine РёР»Рё Sodium."
             />
             <FeatureCard 
               delay={0.6}
               icon={<CheckCircle2 className="w-7 h-7 text-zinc-400" />}
-              title="Удобный GUI"
-              description="Красивое ClickGUI с анимациями, биндами на любую клавишу и облачным сохранением конфигов."
+              title="РЈРґРѕР±РЅС‹Р№ GUI"
+              description="РљСЂР°СЃРёРІРѕРµ ClickGUI СЃ Р°РЅРёРјР°С†РёСЏРјРё, Р±РёРЅРґР°РјРё РЅР° Р»СЋР±СѓСЋ РєР»Р°РІРёС€Сѓ Рё РѕР±Р»Р°С‡РЅС‹Рј СЃРѕС…СЂР°РЅРµРЅРёРµРј РєРѕРЅС„РёРіРѕРІ."
             />
           </div>
         </div>
@@ -263,39 +263,39 @@ export default function App() {
             viewport={{ once: true }}
             className="text-center mb-20"
           >
-            <h2 className="text-4xl md:text-6xl font-display font-black mb-6">Выбери свой тариф</h2>
-            <p className="text-xl text-zinc-400 max-w-2xl mx-auto">Моментальная выдача после оплаты. Автоматические обновления.</p>
+            <h2 className="text-4xl md:text-6xl font-display font-black mb-6">Р’С‹Р±РµСЂРё СЃРІРѕР№ С‚Р°СЂРёС„</h2>
+            <p className="text-xl text-zinc-400 max-w-2xl mx-auto">РњРѕРјРµРЅС‚Р°Р»СЊРЅР°СЏ РІС‹РґР°С‡Р° РїРѕСЃР»Рµ РѕРїР»Р°С‚С‹. РђРІС‚РѕРјР°С‚РёС‡РµСЃРєРёРµ РѕР±РЅРѕРІР»РµРЅРёСЏ.</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto items-stretch">
             <PricingCard 
               delay={0.1}
-              title="1 Месяц"
-              price="299₽"
-              features={['Доступ ко всем функциям', 'Обновления клиента', 'Поддержка в Discord', 'Готовые конфиги']}
-              onBuy={() => handleBuyClick('1_month', '1 Месяц', '299₽')}
+              title="1 РњРµСЃСЏС†"
+              price="299в‚Ѕ"
+              features={['Р”РѕСЃС‚СѓРї РєРѕ РІСЃРµРј С„СѓРЅРєС†РёСЏРј', 'РћР±РЅРѕРІР»РµРЅРёСЏ РєР»РёРµРЅС‚Р°', 'РџРѕРґРґРµСЂР¶РєР° РІ Discord', 'Р“РѕС‚РѕРІС‹Рµ РєРѕРЅС„РёРіРё']}
+              onBuy={() => handleBuyClick('1_month', '1 РњРµСЃСЏС†', '299в‚Ѕ')}
             />
             <PricingCard 
               delay={0.2}
-              title="Навсегда"
-              price="890₽"
+              title="РќР°РІСЃРµРіРґР°"
+              price="890в‚Ѕ"
               isPopular
-              features={['Доступ ко всем функциям', 'Пожизненные обновления', 'Приоритетная поддержка', 'Премиум конфиги', 'Уникальная роль в Discord']}
-              onBuy={() => handleBuyClick('lifetime', 'Навсегда', '890₽')}
+              features={['Р”РѕСЃС‚СѓРї РєРѕ РІСЃРµРј С„СѓРЅРєС†РёСЏРј', 'РџРѕР¶РёР·РЅРµРЅРЅС‹Рµ РѕР±РЅРѕРІР»РµРЅРёСЏ', 'РџСЂРёРѕСЂРёС‚РµС‚РЅР°СЏ РїРѕРґРґРµСЂР¶РєР°', 'РџСЂРµРјРёСѓРј РєРѕРЅС„РёРіРё', 'РЈРЅРёРєР°Р»СЊРЅР°СЏ СЂРѕР»СЊ РІ Discord']}
+              onBuy={() => handleBuyClick('lifetime', 'РќР°РІСЃРµРіРґР°', '890в‚Ѕ')}
             />
             <PricingCard 
               delay={0.3}
-              title="Бета"
-              price="1290₽"
-              features={['Ранний доступ к обходам', 'Эксклюзивные функции', 'Прямая связь с кодером', 'Уникальная Beta роль', 'Влияние на разработку']}
-              onBuy={() => handleBuyClick('beta', 'Бета', '1290₽')}
+              title="Р‘РµС‚Р°"
+              price="1290в‚Ѕ"
+              features={['Р Р°РЅРЅРёР№ РґРѕСЃС‚СѓРї Рє РѕР±С…РѕРґР°Рј', 'Р­РєСЃРєР»СЋР·РёРІРЅС‹Рµ С„СѓРЅРєС†РёРё', 'РџСЂСЏРјР°СЏ СЃРІСЏР·СЊ СЃ РєРѕРґРµСЂРѕРј', 'РЈРЅРёРєР°Р»СЊРЅР°СЏ Beta СЂРѕР»СЊ', 'Р’Р»РёСЏРЅРёРµ РЅР° СЂР°Р·СЂР°Р±РѕС‚РєСѓ']}
+              onBuy={() => handleBuyClick('beta', 'Р‘РµС‚Р°', '1290в‚Ѕ')}
             />
             <PricingCard 
               delay={0.4}
-              title="Сброс HWID"
-              price="499₽"
-              features={['Сброс привязки к ПК', 'Безлимитная активация', 'Одноразовая услуга', 'Подходит для всех тарифов']}
-              onBuy={() => handleBuyClick('hwid_reset', 'Сброс HWID', '499₽')}
+              title="РЎР±СЂРѕСЃ HWID"
+              price="499в‚Ѕ"
+              features={['РЎР±СЂРѕСЃ РїСЂРёРІСЏР·РєРё Рє РџРљ', 'Р‘РµР·Р»РёРјРёС‚РЅР°СЏ Р°РєС‚РёРІР°С†РёСЏ', 'РћРґРЅРѕСЂР°Р·РѕРІР°СЏ СѓСЃР»СѓРіР°', 'РџРѕРґС…РѕРґРёС‚ РґР»СЏ РІСЃРµС… С‚Р°СЂРёС„РѕРІ']}
+              onBuy={() => handleBuyClick('hwid_reset', 'РЎР±СЂРѕСЃ HWID', '499в‚Ѕ')}
             />
           </div>
         </div>
@@ -309,16 +309,16 @@ export default function App() {
             <span className="font-display font-bold tracking-wider">AURA</span>
           </div>
           <p className="text-zinc-500 text-sm">
-            © 2026 Aura Client. Не является официальным продуктом Minecraft.
+            В© 2026 Aura Client. РќРµ СЏРІР»СЏРµС‚СЃСЏ РѕС„РёС†РёР°Р»СЊРЅС‹Рј РїСЂРѕРґСѓРєС‚РѕРј Minecraft.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
-            <a href="/offer" className="text-sm text-zinc-500 hover:text-white transition-colors">Публичная оферта</a>
-            <a href="/privacy" className="text-sm text-zinc-500 hover:text-white transition-colors">Политика конфиденциальности</a>
-            <a href="/contacts" className="text-sm text-zinc-500 hover:text-white transition-colors">Контакты</a>
+            <a href="/offer" className="text-sm text-zinc-500 hover:text-white transition-colors">РџСѓР±Р»РёС‡РЅР°СЏ РѕС„РµСЂС‚Р°</a>
+            <a href="/privacy" className="text-sm text-zinc-500 hover:text-white transition-colors">РџРѕР»РёС‚РёРєР° РєРѕРЅС„РёРґРµРЅС†РёР°Р»СЊРЅРѕСЃС‚Рё</a>
+            <a href="/contacts" className="text-sm text-zinc-500 hover:text-white transition-colors">РљРѕРЅС‚Р°РєС‚С‹</a>
           </div>
         </div>
         <p className="max-w-7xl mx-auto mt-4 text-center text-xs text-zinc-500">
-          Самозанятый: Игорь Глебов Александрович, ИНН 20639063753
+          РЎР°РјРѕР·Р°РЅСЏС‚С‹Р№: РРіРѕСЂСЊ Р“Р»РµР±РѕРІ РђР»РµРєСЃР°РЅРґСЂРѕРІРёС‡, РРќРќ 20639063753
         </p>
       </footer>
 
@@ -374,7 +374,7 @@ function PricingCard({ title, price, features, isPopular = false, delay, onBuy }
     >
       {isPopular && (
         <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-6 py-1.5 bg-white rounded-full text-sm font-bold uppercase tracking-widest text-black shadow-[0_0_30px_rgba(255,255,255,0.6)]">
-          Хит продаж
+          РҐРёС‚ РїСЂРѕРґР°Р¶
         </div>
       )}
       <h3 className="text-2xl font-medium text-zinc-400 mb-4">{title}</h3>
@@ -393,7 +393,7 @@ function PricingCard({ title, price, features, isPopular = false, delay, onBuy }
         onClick={onBuy}
         className={`w-full py-5 rounded-2xl font-bold text-lg transition-all duration-300 ${isPopular ? 'bg-white text-black hover:bg-zinc-200 hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]' : 'bg-zinc-800 text-white hover:bg-zinc-700'}`}
       >
-        Выбрать тариф
+        Р’С‹Р±СЂР°С‚СЊ С‚Р°СЂРёС„
       </button>
     </motion.div>
   );
@@ -427,4 +427,5 @@ function TelegramIcon() {
     </svg>
   );
 }
+
 

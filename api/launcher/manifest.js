@@ -8,6 +8,8 @@ import { checkRateLimit, getClientIp } from '../_lib/rate-limit.js';
 const MANIFEST_LIMIT = Number(process.env.LAUNCHER_MANIFEST_RATE_LIMIT || 120);
 const MANIFEST_WINDOW_MS = Number(process.env.LAUNCHER_MANIFEST_WINDOW_MS || 10 * 60 * 1000);
 const MANIFEST_TTL_MS = Number(process.env.MANIFEST_TTL_MS || 60 * 1000);
+const CANONICAL_MINECRAFT_VERSION = String(process.env.MINECRAFT_VERSION || '1.21.4').trim();
+const CANONICAL_MODLOADER = String(process.env.MODLOADER || 'fabric').trim().toLowerCase();
 
 function resolveSigningKey() {
   const currentKid = String(process.env.MANIFEST_CURRENT_KID || '').trim();
@@ -122,6 +124,8 @@ export default async function handler(req, res) {
     const expiresAt = issuedAt + MANIFEST_TTL_MS;
     const payload = {
       version: artifact.version,
+      minecraftVersion: CANONICAL_MINECRAFT_VERSION,
+      modloader: CANONICAL_MODLOADER,
       url: artifactUrl,
       hash: artifact.hash,
       size: artifact.size,
@@ -147,6 +151,8 @@ export default async function handler(req, res) {
     return res.status(200).json({
       ok: true,
       algorithm: 'ed25519',
+      minecraftVersion: CANONICAL_MINECRAFT_VERSION,
+      modloader: CANONICAL_MODLOADER,
       kid,
       payload: payloadJson,
       signature

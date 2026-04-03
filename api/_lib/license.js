@@ -4,7 +4,7 @@ import { db, webApiKey } from './firebase.js';
 
 const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 24 * 60 * 60 * 1000);
 const HWID_RESET_WINDOW_MS = Number(process.env.HWID_RESET_WINDOW_MS || 30 * 24 * 60 * 60 * 1000);
-const FREE_HWID_RESETS_PER_WINDOW = Number(process.env.FREE_HWID_RESETS_PER_WINDOW || 1);
+const FREE_HWID_RESETS_PER_WINDOW = Number(process.env.FREE_HWID_RESETS_PER_WINDOW || 0);
 
 const SUBS_WITHOUT_EXPIRY = new Set(['lifetime', 'beta']);
 
@@ -121,23 +121,34 @@ export async function getUserByUid(uid) {
 
 export async function ensureUserRecord(uid, email) {
   const userRef = ref(db, `users/${uid}`);
+  const entitlementRef = ref(db, `entitlements/${uid}`);
   const snapshot = await get(userRef);
 
   if (!snapshot.exists()) {
+    const now = nowMs();
     const freshUser = {
       email,
       role: 'user',
+      status: 'active',
       subscription: 'none',
       subscriptionExpiresAt: null,
       hwidHash: null,
       uidShort: generateUidShort(uid),
       resetCredits: FREE_HWID_RESETS_PER_WINDOW,
-      resetWindowStart: nowMs(),
+      resetWindowStart: now,
       banned: false,
-      createdAt: nowMs()
+      createdAt: now,
+      lastLoginAt: null
     };
 
     await set(userRef, freshUser);
+    await set(entitlementRef, {
+      plan: 'none',
+      state: 'pending',
+      expiresAt: null,
+      source: 'init',
+      updatedAt: now
+    });
     return freshUser;
   }
 
@@ -168,7 +179,55 @@ export async function ensureUserRecord(uid, email) {
     await update(userRef, patch);
   }
 
+  const entitlementSnapshot = await get(entitlementRef);
+  if (!entitlementSnapshot.exists()) {
+    await set(entitlementRef, {
+      plan: resolveSubscriptionRaw(existing),
+      state: isSubscriptionActive(existing) ? 'active' : 'pending',
+      expiresAt: resolveExpiresAt(existing) || null,
+      source: 'legacy_sync',
+      updatedAt: nowMs()
+    });
+  }
+
   return { ...existing, ...patch };
+}
+
+export async function getEntitlement(uid) {
+  const snapshot = await get(ref(db, `entitlements/${uid}`));
+  if (!snapshot.exists()) {
+    return null;
+  }
+  return snapshot.val() || null;
+}
+
+export function resolveEntitlementState(user, entitlement, now = nowMs()) {
+  const fromLegacy = getSubscriptionState(user, now);
+  const ent = entitlement || {};
+  const state = String(ent.state || '').toLowerCase();
+  const plan = String(ent.plan || fromLegacy.subscription || 'none').toLowerCase();
+  const expiresAt = toNumber(ent.expiresAt, fromLegacy.subscriptionExpiresAt || 0);
+
+  if (state === 'revoked' || state === 'blocked') {
+    return { active: false, state: 'revoked', plan: 'none', expiresAt: null };
+  }
+
+  if (state === 'active') {
+    if (SUBS_WITHOUT_EXPIRY.has(plan) || !expiresAt || expiresAt > now) {
+      return { active: true, state: 'active', plan, expiresAt: expiresAt || null };
+    }
+  }
+
+  if (fromLegacy.active) {
+    return {
+      active: true,
+      state: 'active',
+      plan: fromLegacy.subscription,
+      expiresAt: fromLegacy.subscriptionExpiresAt
+    };
+  }
+
+  return { active: false, state: state || 'pending', plan: 'none', expiresAt: expiresAt || null };
 }
 
 export function evaluateHwidPolicy(user, hwidHash, now = nowMs()) {
@@ -212,17 +271,21 @@ export function evaluateHwidPolicy(user, hwidHash, now = nowMs()) {
     };
   }
 
+  const mismatchStrikes = toNumber(user.mismatchStrikes, 0) + 1;
+  const cooldownMs = Math.min(15 * 60 * 1000, Math.pow(2, Math.min(mismatchStrikes, 8)) * 1000);
   return {
     allowed: false,
     patch: {
       resetCredits,
-      resetWindowStart
+      resetWindowStart,
+      mismatchStrikes,
+      cooldownUntil: now + cooldownMs
     },
     message: 'HWID mismatch. Free reset exhausted. Buy paid HWID reset.'
   };
 }
 
-export async function createSession(uid, hwidHash, launcherVersion = 'unknown') {
+export async function createSession(uid, hwidHash, launcherVersion = 'unknown', deviceId = '', deviceFingerprintHash = '') {
   const issuedAt = nowMs();
   const expiresAt = issuedAt + SESSION_TTL_MS;
 
@@ -231,6 +294,8 @@ export async function createSession(uid, hwidHash, launcherVersion = 'unknown') 
 
   await set(ref(db, `sessions/${sessionTokenHash}`), {
     uid,
+    deviceId: String(deviceId || '').trim(),
+    deviceFingerprintHash: String(deviceFingerprintHash || '').trim(),
     hwidHash,
     issuedAt,
     expiresAt,
@@ -297,6 +362,23 @@ export async function verifySessionToken(sessionToken, hwidHash, options = {}) {
     return { valid: false, message: 'HWID mismatch.' };
   }
 
+  const revocationsSnapshot = await get(ref(db, 'revocations/global'));
+  if (revocationsSnapshot.exists()) {
+    const revocations = revocationsSnapshot.val() || {};
+    const minTokenIat = toNumber(revocations.minTokenIat, 0);
+    const blockedUids = Array.isArray(revocations.blockedUids) ? revocations.blockedUids.map(String) : [];
+    const blockedHwids = Array.isArray(revocations.blockedHwids) ? revocations.blockedHwids.map((item) => normalizeHwidHash(item)) : [];
+    if (minTokenIat > 0 && toNumber(session.issuedAt, 0) < minTokenIat) {
+      return { valid: false, message: 'Session globally revoked.' };
+    }
+    if (blockedHwids.includes(hwid)) {
+      return { valid: false, message: 'HWID blocked.' };
+    }
+    if (blockedUids.includes(String(session.uid || ''))) {
+      return { valid: false, message: 'User blocked.' };
+    }
+  }
+
   const user = await getUserByUid(session.uid);
   if (!user) {
     return { valid: false, message: 'User not found.' };
@@ -307,8 +389,9 @@ export async function verifySessionToken(sessionToken, hwidHash, options = {}) {
     return { valid: false, message: 'User is banned.' };
   }
 
-  const subscriptionState = getSubscriptionState(user, now);
-  if (!subscriptionState.active) {
+  const entitlement = await getEntitlement(session.uid);
+  const entitlementState = resolveEntitlementState(user, entitlement, now);
+  if (!entitlementState.active) {
     return { valid: false, message: 'Subscription inactive.' };
   }
 
@@ -332,7 +415,7 @@ export async function verifySessionToken(sessionToken, hwidHash, options = {}) {
     uid: session.uid,
     uidShort,
     email: user.email || null,
-    subscription: subscriptionState.subscription,
+    subscription: entitlementState.plan,
     sessionExpiresAt: toNumber(session.expiresAt, now)
   };
 }
@@ -374,6 +457,7 @@ export function normalizeTier(rawTier) {
 export async function activateSubscriptionFromPayment(userId, tierRaw) {
   const tier = normalizeTier(tierRaw);
   const userRef = ref(db, `users/${userId}`);
+  const entitlementRef = ref(db, `entitlements/${userId}`);
   const userSnapshot = await get(userRef);
 
   if (!userSnapshot.exists()) {
@@ -390,6 +474,9 @@ export async function activateSubscriptionFromPayment(userId, tierRaw) {
       paidResetCredits: toNumber(user.paidResetCredits, 0) + 1,
       lastPaidResetAt: now
     });
+    await update(entitlementRef, {
+      updatedAt: now
+    });
     return { appliedTier: tier, subscription: resolveSubscriptionRaw(user), subscriptionExpiresAt: resolveExpiresAt(user) || null };
   }
 
@@ -403,6 +490,13 @@ export async function activateSubscriptionFromPayment(userId, tierRaw) {
       subscriptionExpiresAt: newExpiresAt,
       lastPaymentAt: now
     });
+    await set(entitlementRef, {
+      plan: '1_month',
+      state: 'active',
+      expiresAt: newExpiresAt,
+      source: 'payment',
+      updatedAt: now
+    });
 
     return { appliedTier: tier, subscription: '1_month', subscriptionExpiresAt: newExpiresAt };
   }
@@ -412,6 +506,13 @@ export async function activateSubscriptionFromPayment(userId, tierRaw) {
       subscription: tier,
       subscriptionExpiresAt: null,
       lastPaymentAt: now
+    });
+    await set(entitlementRef, {
+      plan: tier,
+      state: 'active',
+      expiresAt: null,
+      source: 'payment',
+      updatedAt: now
     });
 
     return { appliedTier: tier, subscription: tier, subscriptionExpiresAt: null };

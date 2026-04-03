@@ -1,8 +1,10 @@
 import fs from 'fs';
-import { get, ref } from 'firebase/database';
+import { get, ref, set } from 'firebase/database';
 import { db } from '../_lib/firebase.js';
 import { readArtifactMeta } from '../_lib/artifacts.js';
 import { verifyDownloadToken } from '../_lib/download-links.js';
+import { createHash } from 'crypto';
+import { getEntitlement, resolveEntitlementState, writeAuditLog } from '../_lib/license.js';
 
 function readQueryToken(req) {
   const token = req?.query?.token;
@@ -26,15 +28,35 @@ export default async function handler(req, res) {
   const payload = verified.payload || {};
   const type = String(payload.type || '').trim();
   const uid = String(payload.uid || '').trim();
-  if (!type || !uid) {
+  const jti = String(payload.jti || '').trim();
+  if (!type || !uid || !jti) {
     return res.status(403).json({ ok: false, error: 'Download token payload is invalid.' });
+  }
+  if (!['launcher', 'client'].includes(type)) {
+    return res.status(403).json({ ok: false, error: 'Unsupported artifact type.' });
   }
 
   try {
+    const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
+    if (payload.ip && String(payload.ip).trim() !== ip) {
+      return res.status(403).json({ ok: false, error: 'Download token IP mismatch.' });
+    }
+
+    const usedTokenKey = createHash('sha256').update(`${uid}:${jti}`, 'utf8').digest('hex');
+    const usedSnapshot = await get(ref(db, `used_download_tokens/${usedTokenKey}`));
+    if (usedSnapshot.exists()) {
+      return res.status(403).json({ ok: false, error: 'Download token already used.' });
+    }
+
     const userSnapshot = await get(ref(db, `users/${uid}`));
     const user = userSnapshot.exists() ? (userSnapshot.val() || {}) : {};
     if (user.banned === true) {
       return res.status(403).json({ ok: false, error: 'Account is banned.' });
+    }
+    const entitlement = await getEntitlement(uid);
+    const entitlementState = resolveEntitlementState(user, entitlement);
+    if (!entitlementState.active) {
+      return res.status(403).json({ ok: false, error: 'Subscription inactive.' });
     }
 
     const artifact = readArtifactMeta(type);
@@ -48,6 +70,19 @@ export default async function handler(req, res) {
     res.setHeader('Content-Disposition', `attachment; filename="${artifact.fileName}"`);
     res.setHeader('X-Artifact-Version', artifact.version);
     res.setHeader('X-Artifact-Sha256', artifact.hash);
+    await writeAuditLog('artifact_download_started', {
+      uid,
+      type,
+      artifactName: artifact.fileName,
+      ip
+    });
+    await set(ref(db, `used_download_tokens/${usedTokenKey}`), {
+      uid,
+      type,
+      jti,
+      usedAt: Date.now(),
+      ip
+    });
 
     const stream = fs.createReadStream(artifact.absolutePath);
     stream.on('error', (error) => {

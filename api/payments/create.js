@@ -82,6 +82,11 @@ export default async function handler(req, res) {
       createdAt,
       updatedAt: createdAt
     });
+    await update(ref(db, `entitlements/${auth.uid}`), {
+      state: 'pending',
+      source: 'payment_create',
+      updatedAt: createdAt
+    });
 
     await writeAuditLog('payment_create_requested', {
       ip,

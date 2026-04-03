@@ -1,3 +1,4 @@
+﻿// DEPRECATED: non-canonical compatibility file. Production routing uses canonical API handlers in /api/* paths.
 module.exports = function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -26,9 +27,9 @@ module.exports = function handler(req, res) {
   // Manifest for launcher
   if (url.includes('/api/launcher/manifest') && req.method === 'POST') {
     return res.json({
-      version: '1.16.5',
-      forge: '1.16.5-36.2.42',
-      minecraft: '1.16.5',
+      version: '1.21.4',
+      Fabric: '1.21.4-36.2.42',
+      minecraft: '1.21.4',
       downloads: {
         client: {
           url: 'https://aura-client-sites.vercel.app/downloads/AuraClient.jar',
@@ -36,8 +37,8 @@ module.exports = function handler(req, res) {
           size: 100000000
         },
         mods: {
-          'clientguard-1.16.5.jar': {
-            url: 'https://aura-client-sites.vercel.app/downloads/mods/clientguard-1.16.5.jar',
+          'aura-guard-fabric-1.21.4.jar': {
+            url: 'https://aura-client-sites.vercel.app/downloads/mods/aura-guard-fabric-1.21.4.jar',
             sha256: 'test-hash',
             size: 1000000,
             required: true
@@ -46,7 +47,7 @@ module.exports = function handler(req, res) {
       },
       arguments: {
         jvm: ['-Xmx4G', '-Xms1G', '-Daura.client.guard=true'],
-        game: ['--username', 'TestUser', '--version', '1.16.5']
+        game: ['--username', 'TestUser', '--version', '1.21.4']
       }
     });
   }
@@ -64,3 +65,5 @@ module.exports = function handler(req, res) {
   // 404
   res.status(404).json({ error: 'Not found' });
 };
+
+

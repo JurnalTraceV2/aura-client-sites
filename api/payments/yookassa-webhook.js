@@ -3,6 +3,7 @@ import { db } from '../_lib/firebase.js';
 import { activateSubscriptionFromPayment, writeAuditLog } from '../_lib/license.js';
 import { badRequest, forbidden, getBody, methodNotAllowed, serverError } from '../_lib/http.js';
 import { normalizeYooKassaStatus } from '../_lib/yookassa.js';
+import crypto from 'crypto';
 
 function getIncomingSecret(req) {
   return String(
@@ -77,6 +78,10 @@ export default async function handler(req, res) {
   const providerTxId = String(paymentObject.id || '').trim();
   const providerStatusRaw = String(paymentObject.status || '').trim();
   const providerStatus = normalizeYooKassaStatus(providerStatusRaw);
+  const providerPayloadHash = crypto
+    .createHash('sha256')
+    .update(JSON.stringify(body || {}), 'utf8')
+    .digest('hex');
   const metadata = paymentObject.metadata || {};
 
   const paymentIdFromMeta = String(metadata.paymentId || body.paymentId || '').trim();
@@ -117,6 +122,7 @@ export default async function handler(req, res) {
       providerTxId: providerTxId || payment.providerTxId || null,
       providerStatus: providerStatusRaw || null,
       status: providerStatus || payment.status || 'pending',
+      providerPayloadHash,
       eventType: eventType || null,
       updatedAt: now
     });
@@ -147,6 +153,17 @@ export default async function handler(req, res) {
         subscription: applied.subscription,
         subscriptionExpiresAt: applied.subscriptionExpiresAt
       });
+    }
+
+    if (providerStatus === 'failed') {
+      const userId = String(metadata.userId || payment.userId || '').trim();
+      if (userId) {
+        await update(ref(db, `entitlements/${userId}`), {
+          state: 'revoked',
+          source: 'payment_refund_or_cancel',
+          updatedAt: now
+        });
+      }
     }
 
     return res.status(200).json({ ok: true });

@@ -10,7 +10,9 @@ export default async function handler(req, res) {
     email: incoming.email || incoming.login,
     password: incoming.password || incoming.pass,
     hwidHash: incoming.hwidHash || incoming.hwid,
-    launcherVersion: incoming.launcherVersion || incoming.version || 'legacy'
+    launcherVersion: incoming.launcherVersion || incoming.version || 'legacy',
+    deviceId: incoming.deviceId || incoming.device || incoming.hwidHash || incoming.hwid || '',
+    deviceProof: incoming.deviceProof || incoming.deviceFingerprintHash || incoming.hwidHash || incoming.hwid || ''
   };
 
   const compatReq = {
@@ -27,6 +29,10 @@ export default async function handler(req, res) {
     if (payload.ok && payload.sessionToken) {
       return originalJson({
         success: true,
+        accessToken: payload.accessToken || '',
+        refreshToken: payload.refreshToken || '',
+        accessExpiresAt: payload.accessExpiresAt || null,
+        refreshExpiresAt: payload.refreshExpiresAt || null,
         token: payload.sessionToken,
         sessionToken: payload.sessionToken,
         uidShort: payload.uidShort,

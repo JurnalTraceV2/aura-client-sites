@@ -1,5 +1,5 @@
 ﻿import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, User } from 'firebase/auth';
+import { getAuth, User } from 'firebase/auth';
 import { getDatabase, get, ref, serverTimestamp, set } from 'firebase/database';
 
 const defaultFirebaseConfig = {
@@ -44,7 +44,6 @@ if (missingFirebaseEnv.length > 0) {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
-export const googleProvider = new GoogleAuthProvider();
 
 function getApiErrorMessage(payload: any, response: Response) {
   const base = String(payload?.error || payload?.message || `HTTP ${response.status}`).trim();
@@ -98,6 +97,7 @@ export async function ensureUserDocument(user: User | null) {
   }
 
   const userRef = ref(db, `users/${user.uid}`);
+  const entitlementRef = ref(db, `entitlements/${user.uid}`);
   try {
     const snapshot = await get(userRef);
     if (!snapshot.exists()) {
@@ -107,6 +107,16 @@ export async function ensureUserDocument(user: User | null) {
         subscription: 'none',
         hwidHash: null,
         createdAt: serverTimestamp()
+      });
+    }
+    const entitlementSnapshot = await get(entitlementRef);
+    if (!entitlementSnapshot.exists()) {
+      await set(entitlementRef, {
+        plan: 'none',
+        state: 'pending',
+        expiresAt: null,
+        source: 'signup',
+        updatedAt: Date.now()
       });
     }
   } catch (error) {
