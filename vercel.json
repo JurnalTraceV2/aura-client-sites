@@ -48,14 +48,6 @@
       "use": "@vercel/node"
     },
     {
-      "src": "api/launcher/security-event.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/client/mods/verify.js",
-      "use": "@vercel/node"
-    },
-    {
       "src": "api/download/artifact.js",
       "use": "@vercel/node"
     },
@@ -111,14 +103,6 @@
     {
       "source": "/api/launcher/verify-session",
       "destination": "/api/launcher/verify-session.js"
-    },
-    {
-      "source": "/api/launcher/security-event",
-      "destination": "/api/launcher/security-event.js"
-    },
-    {
-      "source": "/api/client/mods/verify",
-      "destination": "/api/client/mods/verify.js"
     },
     {
       "source": "/api/download/artifact",
