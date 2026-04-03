@@ -10,12 +10,12 @@ export default function Contacts() {
           className="inline-flex items-center text-purple-400 hover:text-purple-300 mb-8 transition-colors"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Назад
+          �����
         </a>
 
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl font-bold text-center mb-8 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Контакты
+            ��������
           </h1>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -25,7 +25,7 @@ export default function Contacts() {
                 <h3 className="text-xl font-semibold">Email</h3>
               </div>
               <p className="text-gray-300">sowingrim@mail.ru</p>
-              <p className="text-gray-400 text-sm mt-2">Техническая поддержка</p>
+              <p className="text-gray-400 text-sm mt-2">����������� ���������</p>
             </div>
 
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-purple-500/20">
@@ -41,7 +41,7 @@ export default function Contacts() {
               >
                 discord.gg/9XYURMb5
               </a>
-              <p className="text-gray-400 text-sm mt-2">Основное общение</p>
+              <p className="text-gray-400 text-sm mt-2">�������� �������</p>
             </div>
 
             <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-purple-500/20">
@@ -57,34 +57,34 @@ export default function Contacts() {
               >
                 @AuraClients
               </a>
-              <p className="text-gray-400 text-sm mt-2">Новости и обновления</p>
+              <p className="text-gray-400 text-sm mt-2">������� � ����������</p>
             </div>
           </div>
 
           <div className="mt-12 bg-gray-800/50 backdrop-blur-sm rounded-2xl p-8 border border-purple-500/20">
-            <h2 className="text-2xl font-semibold mb-6 text-purple-300">Реквизиты</h2>
+            <h2 className="text-2xl font-semibold mb-6 text-purple-300">���������</h2>
             <div className="bg-gray-900/50 rounded-lg p-6 font-mono text-sm">
               <p className="text-gray-300 mb-2">
-                <strong>Компания:</strong> Игорь Глебов Александрович (ИП/самозанятый)
+                <strong>��������:</strong> ����� ������ ������������� (��/�����������)
               </p>
               <p className="text-gray-300 mb-2">
-                <strong>ИНН:</strong> 20639063753
+                <strong>���:</strong> 20639063753
               </p>
               <p className="text-gray-300 mb-2">
                 <strong>Email:</strong> sowingrim@mail.ru
               </p>
               <p className="text-gray-300">
-                <strong>Сайт:</strong> https://aura-client-sites.vercel.app
+                <strong>����:</strong> https://aura-client-sites.vercel.app
               </p>
             </div>
           </div>
 
           <div className="mt-12 text-center">
             <p className="text-gray-400">
-              Время работы поддержки: 10:00 - 22:00 по МСК
+              ����� ������ ���������: 10:00 - 22:00 �� ���
             </p>
             <p className="text-gray-400 mt-2">
-              Среднее время ответа: 15-30 минут
+              ������� ����� ������: 15-30 �����
             </p>
           </div>
         </div>

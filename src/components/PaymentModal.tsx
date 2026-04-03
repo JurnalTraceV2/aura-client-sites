@@ -18,7 +18,7 @@ export function PaymentModal({ isOpen, onClose, tierId, tier, price }: PaymentMo
 
   const handlePay = async () => {
     if (!user) {
-      setError('Сначала войдите в аккаунт.');
+      setError('������� ������� � �������.');
       return;
     }
 
@@ -29,13 +29,13 @@ export function PaymentModal({ isOpen, onClose, tierId, tier, price }: PaymentMo
       const returnUrl = `${window.location.origin}/?paymentReturn=1`;
       const checkout = await createCheckoutPayment(tierId, returnUrl);
       if (!checkout.confirmationUrl) {
-        throw new Error('Платежный URL не получен.');
+        throw new Error('��������� URL �� �������.');
       }
 
       localStorage.setItem('aura_last_payment_id', checkout.paymentId);
       window.location.href = checkout.confirmationUrl;
     } catch (err: any) {
-      setError(err?.message || 'Не удалось создать платеж.');
+      setError(err?.message || '�� ������� ������� ������.');
       setLoading(false);
     }
   };
@@ -71,13 +71,13 @@ export function PaymentModal({ isOpen, onClose, tierId, tier, price }: PaymentMo
                 <span className="font-display font-bold text-xl tracking-wider">AURA</span>
               </div>
 
-              <h2 className="text-2xl font-bold text-white mb-2">Оплата подписки</h2>
-              <p className="text-zinc-400 mb-2">Тариф: <span className="text-white font-semibold">{tier}</span></p>
-              <p className="text-zinc-400 mb-6">Стоимость: <span className="text-white font-semibold">{price}</span></p>
+              <h2 className="text-2xl font-bold text-white mb-2">������ ��������</h2>
+              <p className="text-zinc-400 mb-2">�����: <span className="text-white font-semibold">{tier}</span></p>
+              <p className="text-zinc-400 mb-6">���������: <span className="text-white font-semibold">{price}</span></p>
 
               <div className="bg-zinc-800/70 rounded-xl border border-white/10 p-4 mb-6">
                 <p className="text-sm text-zinc-300">
-                  После нажатия откроется YooKassa checkout. Подписка активируется автоматически после успешной оплаты.
+                  ����� ������� ��������� YooKassa checkout. �������� ������������ ������������� ����� �������� ������.
                 </p>
               </div>
 
@@ -96,12 +96,12 @@ export function PaymentModal({ isOpen, onClose, tierId, tier, price }: PaymentMo
                 {loading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                    Переход к оплате...
+                    ������� � ������...
                   </>
                 ) : (
                   <>
                     <CreditCard className="w-5 h-5" />
-                    Оплатить
+                    ��������
                   </>
                 )}
               </button>
@@ -110,7 +110,7 @@ export function PaymentModal({ isOpen, onClose, tierId, tier, price }: PaymentMo
                 onClick={onClose}
                 className="w-full mt-3 text-zinc-500 hover:text-white py-2 text-sm transition"
               >
-                Закрыть
+                �������
               </button>
             </div>
           </motion.div>

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, LogOut, Key, Shield, Clock, AlertCircle, RefreshCw, Download, Loader2 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
@@ -67,7 +67,7 @@ const LAUNCHER_SHA256 = String(
 const LAUNCHER_LINK_TTL_MS = Number(import.meta.env.VITE_LAUNCHER_LINK_TTL_MS || 5 * 60 * 1000);
 function formatDate(timestamp: number | null | undefined) {
   if (!timestamp) {
-    return 'вЂ”';
+    return '—';
   }
   return new Date(timestamp).toLocaleString();
 }
@@ -75,24 +75,24 @@ function formatDate(timestamp: number | null | undefined) {
 function prettySubscription(sub: string) {
   switch (sub) {
     case '1_month':
-      return '1 РњРµСЃСЏС†';
+      return '1 Месяц';
     case 'lifetime':
-      return 'РќР°РІСЃРµРіРґР°';
+      return 'Навсегда';
     case 'beta':
       return 'Beta';
     default:
-      return 'РќРµС‚ Р°РєС‚РёРІРЅРѕР№ РїРѕРґРїРёСЃРєРё';
+      return 'Нет активной подписки';
   }
 }
 
 function paymentStatusLabel(status: string) {
   switch (String(status || '').toLowerCase()) {
     case 'completed':
-      return 'РћРїР»Р°С‡РµРЅРѕ';
+      return 'Оплачено';
     case 'failed':
-      return 'РћС€РёР±РєР°';
+      return 'Ошибка';
     default:
-      return 'РћР¶РёРґР°РЅРёРµ';
+      return 'Ожидание';
   }
 }
 
@@ -126,34 +126,34 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
       return {
         canDownload: false,
         className: 'text-zinc-400',
-        message: 'РЎС‚Р°С‚СѓСЃ Р·Р°РіСЂСѓР·РєРё Р»Р°СѓРЅС‡РµСЂР° Р±СѓРґРµС‚ РґРѕСЃС‚СѓРїРµРЅ РїРѕСЃР»Рµ Р·Р°РіСЂСѓР·РєРё РїСЂРѕС„РёР»СЏ.'
+        message: 'Статус загрузки лаунчера будет доступен после загрузки профиля.'
       };
     }
     if (profile.banned) {
       return {
         canDownload: false,
         className: 'text-red-300',
-        message: 'РЎРєР°С‡РёРІР°РЅРёРµ РЅРµРґРѕСЃС‚СѓРїРЅРѕ: Р°РєРєР°СѓРЅС‚ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ.'
+        message: 'Скачивание недоступно: аккаунт заблокирован.'
       };
     }
     if (profile.subscription === 'none') {
       return {
         canDownload: false,
         className: 'text-yellow-300',
-        message: 'РЎРєР°С‡РёРІР°РЅРёРµ РЅРµРґРѕСЃС‚СѓРїРЅРѕ: Р°РєС‚РёРІРёСЂСѓР№С‚Рµ РїРѕРґРїРёСЃРєСѓ.'
+        message: 'Скачивание недоступно: активируйте подписку.'
       };
     }
     if (!profile.canDownloadLauncher) {
       return {
         canDownload: false,
         className: 'text-yellow-300',
-        message: 'РЎРєР°С‡РёРІР°РЅРёРµ РІСЂРµРјРµРЅРЅРѕ РЅРµРґРѕСЃС‚СѓРїРЅРѕ. РџСЂРѕРІРµСЂСЊС‚Рµ СЃС‚Р°С‚СѓСЃ РїРѕРґРїРёСЃРєРё.'
+        message: 'Скачивание временно недоступно. Проверьте статус подписки.'
       };
     }
     return {
       canDownload: true,
       className: 'text-green-300',
-      message: 'РЎРєР°С‡РёРІР°РЅРёРµ РґРѕСЃС‚СѓРїРЅРѕ.'
+      message: 'Скачивание доступно.'
     };
   }, [profile]);
 
@@ -175,18 +175,18 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
         if (payment) {
           const status = String(payment.status || '').toLowerCase();
           if (status === 'completed') {
-            setRuntimeNotice('РћРїР»Р°С‚Р° РїРѕРґС‚РІРµСЂР¶РґРµРЅР°. РџРѕРґРїРёСЃРєР° Р°РєС‚РёРІРёСЂРѕРІР°РЅР°.');
+            setRuntimeNotice('Оплата подтверждена. Подписка активирована.');
             localStorage.removeItem('aura_last_payment_id');
           } else if (status === 'failed') {
-            setRuntimeNotice('РћРїР»Р°С‚Р° Р·Р°РІРµСЂС€РёР»Р°СЃСЊ РѕС€РёР±РєРѕР№. РџРѕРїСЂРѕР±СѓР№С‚Рµ СЃРЅРѕРІР°.');
+            setRuntimeNotice('Оплата завершилась ошибкой. Попробуйте снова.');
             localStorage.removeItem('aura_last_payment_id');
           } else {
-            setRuntimeNotice('РџР»Р°С‚РµР¶ РІ РѕР±СЂР°Р±РѕС‚РєРµ. РћР±РЅРѕРІР»СЏРµРј РґР°РЅРЅС‹Рµ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё.');
+            setRuntimeNotice('Платеж в обработке. Обновляем данные автоматически.');
           }
         }
       }
     } catch (err: any) {
-      setError(err?.message || 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ РґР°РЅРЅС‹Рµ РєР°Р±РёРЅРµС‚Р°.');
+      setError(err?.message || 'Не удалось загрузить данные кабинета.');
     } finally {
       setLoading(false);
     }
@@ -203,7 +203,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
   }, [isOpen, paymentNotice]);
 
   useEffect(() => {
-    if (!isOpen || !runtimeNotice || !runtimeNotice.toLowerCase().includes('РІ РѕР±СЂР°Р±РѕС‚РєРµ')) {
+    if (!isOpen || !runtimeNotice || !runtimeNotice.toLowerCase().includes('в обработке')) {
       return;
     }
 
@@ -238,7 +238,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
   };
 
   const handleResetClick = () => {
-    if (window.confirm('РЎР±СЂРѕСЃ HWID РѕС‚РєСЂС‹РІР°РµС‚ РѕРїР»Р°С‚Сѓ С‚Р°СЂРёС„Р° "РЎР±СЂРѕСЃ HWID". РџСЂРѕРґРѕР»Р¶РёС‚СЊ?')) {
+    if (window.confirm('Сброс HWID открывает оплату тарифа "Сброс HWID". Продолжить?')) {
       onResetHwid?.();
       onClose();
     }
@@ -273,7 +273,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
               <div className="flex items-center gap-4 mb-8">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-white to-zinc-400 flex items-center justify-center font-display font-black text-2xl text-black">A</div>
                 <div>
-                  <h2 className="text-3xl font-display font-bold">Р›РёС‡РЅС‹Р№ РєР°Р±РёРЅРµС‚</h2>
+                  <h2 className="text-3xl font-display font-bold">Личный кабинет</h2>
                   <p className="text-zinc-400 text-sm">{auth.currentUser?.email}</p>
                 </div>
               </div>
@@ -294,7 +294,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
               {loading ? (
                 <div className="py-14 flex flex-col items-center gap-4">
                   <Loader2 className="w-8 h-8 animate-spin text-zinc-300" />
-                  <p className="text-zinc-400 text-sm">Р—Р°РіСЂСѓР·РєР° РґР°РЅРЅС‹С…...</p>
+                  <p className="text-zinc-400 text-sm">Загрузка данных...</p>
                 </div>
               ) : profile ? (
                 <div className="space-y-6">
@@ -303,14 +303,14 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                       <div>
                         <p className="text-zinc-500 text-sm mb-1 flex items-center gap-2">
                           <Shield className="w-4 h-4" />
-                          РЎС‚Р°С‚СѓСЃ Р»РёС†РµРЅР·РёРё
+                          Статус лицензии
                         </p>
                         <h3 className="text-2xl font-bold text-white">{prettySubscription(profile.subscription)}</h3>
                         <p className="text-zinc-400 text-sm mt-2">
                           UID: <span className="font-semibold text-zinc-200">{profile.uidShort || 'AURA-000000'}</span>
                         </p>
                         <p className="text-zinc-400 text-sm">
-                          РСЃС‚РµРєР°РµС‚: <span className="font-semibold text-zinc-200">{formatDate(profile.subscriptionExpiresAt)}</span>
+                          �?стекает: <span className="font-semibold text-zinc-200">{formatDate(profile.subscriptionExpiresAt)}</span>
                         </p>
                       </div>
                       <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${statusBadge.className}`}>
@@ -322,7 +322,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                   <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6">
                     <p className="text-zinc-500 text-sm mb-3 flex items-center gap-2">
                       <Download className="w-4 h-4" />
-                      РЎРєР°С‡Р°С‚СЊ Р»Р°СѓРЅС‡РµСЂ
+                      Скачать лаунчер
                     </p>
                     <p className={`text-sm mb-3 ${launcherState.className}`}>
                       {launcherState.message}
@@ -333,13 +333,13 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                       className="px-5 py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                      РЎРєР°С‡Р°С‚СЊ Aura Launcher
+                      Скачать Aura Launcher
                     </button>
                     {launcherInfo && (
                       <div className="mt-4 p-3 rounded-xl border border-white/10 bg-black/30 text-xs text-zinc-300 space-y-1">
-                        <p>Р’РµСЂСЃРёСЏ: <span className="text-zinc-100 font-medium">{launcherInfo.version}</span></p>
-                        <p className="break-all">SHA-256: <span className="text-zinc-100 font-mono">{launcherInfo.sha256 || 'РЅРµРґРѕСЃС‚СѓРїРЅРѕ'}</span></p>
-                        <p>РЎСЃС‹Р»РєР° Р°РєС‚РёРІРЅР° РґРѕ: <span className="text-zinc-100">{formatDate(launcherInfo.expiresAt)}</span></p>
+                        <p>Версия: <span className="text-zinc-100 font-medium">{launcherInfo.version}</span></p>
+                        <p className="break-all">SHA-256: <span className="text-zinc-100 font-mono">{launcherInfo.sha256 || 'недоступно'}</span></p>
+                        <p>Ссылка активна до: <span className="text-zinc-100">{formatDate(launcherInfo.expiresAt)}</span></p>
                       </div>
                     )}
                   </div>
@@ -351,7 +351,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                     </p>
                     <div className="flex items-center gap-3">
                       <code className="flex-1 bg-black border border-white/10 rounded-xl p-3 font-mono text-xs text-zinc-300 break-all">
-                        {profile.hwidHash || 'РќРµ РїСЂРёРІСЏР·Р°РЅ'}
+                        {profile.hwidHash || 'Не привязан'}
                       </code>
                       {profile.hwidHash && (
                         <button
@@ -359,7 +359,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                           className="px-4 py-2 rounded-xl bg-yellow-500/10 text-yellow-300 border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors flex items-center gap-2 text-sm"
                         >
                           <RefreshCw className="w-4 h-4" />
-                          РЎР±СЂРѕСЃ
+                          Сброс
                         </button>
                       )}
                     </div>
@@ -368,10 +368,10 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                   <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6">
                     <p className="text-zinc-500 text-sm mb-3 flex items-center gap-2">
                       <Clock className="w-4 h-4" />
-                      РџРѕСЃР»РµРґРЅРёРµ РїР»Р°С‚РµР¶Рё
+                      Последние платежи
                     </p>
                     {profile.payments.length === 0 ? (
-                      <p className="text-zinc-500 text-sm">РџР»Р°С‚РµР¶РµР№ РїРѕРєР° РЅРµС‚.</p>
+                      <p className="text-zinc-500 text-sm">Платежей пока нет.</p>
                     ) : (
                       <div className="space-y-2">
                         {profile.payments.slice(0, 5).map((payment) => (
@@ -388,7 +388,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                   </div>
                 </div>
               ) : (
-                <div className="py-12 text-center text-zinc-500">РќРµС‚ РґР°РЅРЅС‹С… РїСЂРѕС„РёР»СЏ.</div>
+                <div className="py-12 text-center text-zinc-500">Нет данных профиля.</div>
               )}
 
               <div className="mt-8 pt-6 border-t border-white/10 flex justify-between gap-3">
@@ -396,14 +396,14 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                   onClick={loadProfile}
                   className="px-4 py-2 rounded-xl bg-zinc-800 text-zinc-100 hover:bg-zinc-700 transition text-sm"
                 >
-                  РћР±РЅРѕРІРёС‚СЊ
+                  Обновить
                 </button>
                 <button
                   onClick={handleLogout}
                   className="px-6 py-3 rounded-xl bg-red-500/10 text-red-400 font-medium hover:bg-red-500/20 transition-colors flex items-center gap-2"
                 >
                   <LogOut className="w-4 h-4" />
-                  Р’С‹Р№С‚Рё
+                  Выйти
                 </button>
               </div>
             </div>

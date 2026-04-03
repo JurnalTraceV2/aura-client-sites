@@ -59,20 +59,20 @@ const PaymentDemo: React.FC = () => {
           <div className="text-center">
             <div className="mb-8">
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                Добро пожаловать в Aura Client
+                ����� ���������� � Aura Client
               </h2>
               <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                Мощный клиент для Minecraft с расширенными возможностями. 
-                Получите доступ к премиум функциям для лучшего игрового опыта.
+                ������ ������ ��� Minecraft � ������������ �������������. 
+                �������� ������ � ������� �������� ��� ������� �������� �����.
               </p>
             </div>
 
             <div className="bg-white rounded-lg shadow-lg p-8 max-w-md mx-auto mb-8">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">Ваш статус</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">��� ������</h3>
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Текущая подписка:</span>
+                  <span className="text-gray-600">������� ��������:</span>
                   <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
                     subscription === 'premium' 
                       ? 'bg-green-100 text-green-800' 
@@ -83,9 +83,9 @@ const PaymentDemo: React.FC = () => {
                 </div>
                 
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Доступные функции:</span>
+                  <span className="text-gray-600">��������� �������:</span>
                   <span className="text-sm text-gray-500">
-                    {subscription === 'premium' ? 'Все' : 'Базовые'}
+                    {subscription === 'premium' ? '���' : '�������'}
                   </span>
                 </div>
               </div>
@@ -93,13 +93,13 @@ const PaymentDemo: React.FC = () => {
               {subscription === 'free' && (
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                   <p className="text-sm text-blue-800 mb-3">
-                    🚀 Разблокируйте все возможности с Premium подпиской
+                    ? ������������� ��� ����������� � Premium ���������
                   </p>
                   <ul className="text-sm text-blue-700 space-y-1 text-left">
-                    <li>• Все моды и читы</li>
-                    <li>• Приоритетная поддержка</li>
-                    <li>• Регулярные обновления</li>
-                    <li>• Доступ к beta версиям</li>
+                    <li>� ��� ���� � ����</li>
+                    <li>� ������������ ���������</li>
+                    <li>� ���������� ����������</li>
+                    <li>� ������ � beta �������</li>
                   </ul>
                 </div>
               )}
@@ -112,14 +112,14 @@ const PaymentDemo: React.FC = () => {
                   className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
                 >
                   <CreditCard className="w-5 h-5 mr-2" />
-                  Обновить до Premium
+                  �������� �� Premium
                 </button>
               ) : (
                 <div className="space-y-4">
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <h4 className="text-green-800 font-semibold mb-2">Premium активирован!</h4>
+                    <h4 className="text-green-800 font-semibold mb-2">Premium �����������!</h4>
                     <p className="text-green-700 text-sm">
-                      Спасибо за покупку! Наслаждайтесь всеми возможностями Aura Client.
+                      ������� �� �������! ������������� ����� ������������� Aura Client.
                     </p>
                   </div>
                   
@@ -127,7 +127,7 @@ const PaymentDemo: React.FC = () => {
                     onClick={() => setShowPayment(true)}
                     className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors"
                   >
-                    Управление подпиской
+                    ���������� ���������
                   </button>
                 </div>
               )}
@@ -136,31 +136,31 @@ const PaymentDemo: React.FC = () => {
             <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
               <div className="text-center">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">🎮</span>
+                  <span className="text-2xl">?</span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Мощные функции</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">������ �������</h3>
                 <p className="text-gray-600 text-sm">
-                  Доступ к лучшим модам и читам для Minecraft
+                  ������ � ������ ����� � ����� ��� Minecraft
                 </p>
               </div>
 
               <div className="text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">🛡️</span>
+                  <span className="text-2xl">??</span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Безопасность</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">������������</h3>
                 <p className="text-gray-600 text-sm">
-                  Защита от банов и анти-чит систем
+                  ������ �� ����� � ����-��� ������
                 </p>
               </div>
 
               <div className="text-center">
                 <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">⚡</span>
+                  <span className="text-2xl">?</span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Производительность</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">������������������</h3>
                 <p className="text-gray-600 text-sm">
-                  Оптимизированный код для максимального FPS
+                  ���������������� ��� ��� ������������� FPS
                 </p>
               </div>
             </div>

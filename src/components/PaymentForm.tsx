@@ -16,34 +16,34 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ onSuccess, onCancel }) => {
   const tiers = [
     {
       id: 'beta',
-      name: 'Beta доступ',
+      name: 'Beta ������',
       price: 99,
-      period: 'разово',
-      features: ['Доступ к beta версии', 'Все базовые функции', 'Поддержка'],
+      period: '������',
+      features: ['������ � beta ������', '��� ������� �������', '���������'],
       popular: false
     },
     {
       id: '1_month',
       name: 'Premium',
       price: 299,
-      period: '1 месяц',
-      features: ['Полный доступ ко всем функциям', 'Приоритетная поддержка', 'Обновления'],
+      period: '1 �����',
+      features: ['������ ������ �� ���� ��������', '������������ ���������', '����������'],
       popular: true
     },
     {
       id: 'lifetime',
       name: 'Lifetime',
       price: 1999,
-      period: 'навсегда',
-      features: ['Пожизненный доступ', 'Все будущие обновления', 'VIP поддержка'],
+      period: '��������',
+      features: ['����������� ������', '��� ������� ����������', 'VIP ���������'],
       popular: false
     },
     {
       id: 'hwid_reset',
-      name: 'Сброс HWID',
+      name: '����� HWID',
       price: 49,
-      period: 'разово',
-      features: ['Сброс привязки к устройству', 'Изменение HWID'],
+      period: '������',
+      features: ['����� �������� � ����������', '��������� HWID'],
       popular: false
     }
   ];
@@ -53,7 +53,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ onSuccess, onCancel }) => {
     setError('');
 
     try {
-      // Создание платежа
+      // �������� �������
       const response = await fetch('/api/payments/create', {
         method: 'POST',
         headers: {
@@ -62,23 +62,23 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ onSuccess, onCancel }) => {
         body: JSON.stringify({
           tier: selectedTier,
           returnUrl: window.location.origin + '/payment/success',
-          userId: 'user_' + Date.now() // В реальном приложении здесь будет ID пользователя
+          userId: 'user_' + Date.now() // � �������� ���������� ����� ����� ID ������������
         })
       });
 
       const data = await response.json();
 
       if (!data.ok) {
-        throw new Error(data.error || 'Ошибка создания платежа');
+        throw new Error(data.error || '������ �������� �������');
       }
 
       setIsProcessing(true);
       
-      // Перенаправление на страницу оплаты YooKassa
+      // ��������������� �� �������� ������ YooKassa
       window.location.href = data.confirmationUrl;
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Произошла ошибка');
+      setError(err instanceof Error ? err.message : '��������� ������');
       setIsLoading(false);
     }
   };
@@ -105,7 +105,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ onSuccess, onCancel }) => {
     }
   };
 
-  // Проверка статуса платежа при возврате со страницы оплаты
+  // �������� ������� ������� ��� �������� �� �������� ������
   React.useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentId = urlParams.get('payment_id');
@@ -122,13 +122,13 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ onSuccess, onCancel }) => {
         <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <CheckCircle className="w-8 h-8 text-green-600" />
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">Оплата успешно завершена!</h3>
-        <p className="text-gray-600 mb-6">Ваша подписка активирована</p>
+        <h3 className="text-xl font-semibold text-gray-900 mb-2">������ ������� ���������!</h3>
+        <p className="text-gray-600 mb-6">���� �������� ������������</p>
         <button
           onClick={() => onSuccess?.('premium')}
           className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
         >
-          Продолжить
+          ����������
         </button>
       </div>
     );
@@ -137,8 +137,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ onSuccess, onCancel }) => {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Выберите тариф</h2>
-        <p className="text-gray-600">Получите полный доступ ко всем функциям Aura Client</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">�������� �����</h2>
+        <p className="text-gray-600">�������� ������ ������ �� ���� �������� Aura Client</p>
       </div>
 
       {error && (
@@ -161,7 +161,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ onSuccess, onCancel }) => {
             {tier.popular && (
               <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                 <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-semibold">
-                  Популярный
+                  ����������
                 </span>
               </div>
             )}
@@ -169,7 +169,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ onSuccess, onCancel }) => {
             <div className="text-center">
               <h3 className="text-lg font-semibold text-gray-900 mb-2">{tier.name}</h3>
               <div className="mb-4">
-                <span className="text-3xl font-bold text-gray-900">{tier.price}₽</span>
+                <span className="text-3xl font-bold text-gray-900">{tier.price}?</span>
                 <span className="text-gray-600 text-sm">/{tier.period}</span>
               </div>
               
@@ -203,7 +203,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ onSuccess, onCancel }) => {
           className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
           disabled={isLoading || isProcessing}
         >
-          Отмена
+          ������
         </button>
         
         <button
@@ -214,20 +214,20 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ onSuccess, onCancel }) => {
           {isLoading || isProcessing ? (
             <>
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span>{isProcessing ? 'Обработка оплаты...' : 'Создание платежа...'}</span>
+              <span>{isProcessing ? '��������� ������...' : '�������� �������...'}</span>
             </>
           ) : (
             <>
               <CreditCard className="w-5 h-5" />
-              <span>Оплатить</span>
+              <span>��������</span>
             </>
           )}
         </button>
       </div>
 
       <div className="mt-8 text-center text-sm text-gray-500">
-        <p>Оплата происходит через безопасный шлюз YooKassa</p>
-        <p>Все транзакции защищены и соответствуют стандартам PCI DSS</p>
+        <p>������ ���������� ����� ���������� ���� YooKassa</p>
+        <p>��� ���������� �������� � ������������� ���������� PCI DSS</p>
       </div>
     </div>
   );
