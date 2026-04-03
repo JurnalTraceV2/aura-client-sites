@@ -130,7 +130,7 @@
     },
     {
       "source": "/downloads/(.*)",
-      "destination": "/api/download/artifact.js"
+      "destination": "/api/download/artifact.js?type=$1"
     },
     {
       "source": "/offer",
