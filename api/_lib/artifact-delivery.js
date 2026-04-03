@@ -75,6 +75,17 @@ export async function verifyLauncherArtifactAccess(req) {
 
 export async function sendArtifactFile(req, res, artifactType, auditContext = {}) {
   const artifact = readArtifactMeta(artifactType);
+  if (artifact.isExternal && artifact.externalUrl) {
+    await writeAuditLog('launcher_artifact_redirected', {
+      type: artifactType,
+      artifactName: artifact.fileName,
+      artifactVersion: artifact.version,
+      externalUrl: artifact.externalUrl,
+      ...auditContext
+    });
+    return res.redirect(302, artifact.externalUrl);
+  }
+
   if (!fs.existsSync(artifact.absolutePath)) {
     return res.status(404).json({ ok: false, error: 'Artifact not found.' });
   }

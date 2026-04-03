@@ -67,6 +67,7 @@ function jreConfig() {
   const fileName = String(process.env.JRE_ARTIFACT_NAME || 'jre.zip').trim();
   return {
     type: 'jre',
+    externalUrl: String(process.env.JRE_ARTIFACT_URL || 'https://github.com/Unpelsi/jre/releases/download/1.0/jre.zip').trim(),
     absolutePath: toAbsolutePath(process.env.JRE_ARTIFACT_PATH || 'artifacts/jre.zip'),
     fileName,
     version: String(process.env.JRE_VERSION || '21').trim(),
@@ -80,6 +81,7 @@ function assetsConfig() {
   const fileName = String(process.env.ASSETS_ARTIFACT_NAME || 'MinecraftAssets.zip').trim();
   return {
     type: 'assets',
+    externalUrl: String(process.env.ASSETS_ARTIFACT_URL || 'https://github.com/Unpelsi/minecraft/releases/download/1.0/MinecraftAssets.zip').trim(),
     absolutePath: toAbsolutePath(process.env.ASSETS_ARTIFACT_PATH || 'artifacts/MinecraftAssets.zip'),
     fileName,
     version: String(process.env.ASSETS_VERSION || '1.0.0').trim(),
@@ -109,6 +111,14 @@ export function getArtifactConfig(type) {
 
 export function readArtifactMeta(type) {
   const cfg = getArtifactConfig(type);
+  if (cfg.externalUrl && (type === 'jre' || type === 'assets')) {
+    return {
+      ...cfg,
+      hash: cfg.hash || '',
+      size: cfg.size || 0,
+      isExternal: true
+    };
+  }
   if (!cfg.absolutePath) {
     throw new Error(`Artifact path is not configured for type: ${type}`);
   }
