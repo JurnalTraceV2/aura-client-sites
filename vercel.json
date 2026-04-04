@@ -40,6 +40,10 @@
       "use": "@vercel/node"
     },
     {
+      "src": "api/client.js",
+      "use": "@vercel/node"
+    },
+    {
       "src": "api/loader_compat.js",
       "use": "@vercel/node"
     },
@@ -127,6 +131,10 @@
     {
       "source": "/api/launcher/assets",
       "destination": "/api/launcher.js"
+    },
+    {
+      "source": "/api/client/mods/verify",
+      "destination": "/api/client.js"
     },
     {
       "source": "/api/download/artifact",
