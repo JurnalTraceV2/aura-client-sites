@@ -2,6 +2,7 @@ import loginHandler from './launcher/login.js';
 import manifestHandler from './launcher/manifest.js';
 import heartbeatHandler from './launcher/heartbeat.js';
 import verifySessionHandler from './launcher/verify-session.js';
+import launchTokenHandler from './launcher/launch-token.js';
 import artifactHandler from './launcher/artifact.js';
 
 function getPathname(req) {
@@ -29,6 +30,10 @@ export default async function handler(req, res) {
 
   if (pathname.includes('/verify-session')) {
     return verifySessionHandler(req, res);
+  }
+
+  if (pathname.includes('/launch-token')) {
+    return launchTokenHandler(req, res);
   }
 
   if (pathname.includes('/jar') || pathname.includes('/jre') || pathname.includes('/assets')) {

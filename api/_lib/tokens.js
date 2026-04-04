@@ -5,6 +5,7 @@ import { db } from './firebase.js';
 
 const ACCESS_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS || 10 * 60);
 const REFRESH_TTL_SECONDS = Number(process.env.REFRESH_TOKEN_TTL_SECONDS || 30 * 24 * 60 * 60);
+const LAUNCH_TTL_SECONDS = Number(process.env.LAUNCH_TOKEN_TTL_SECONDS || 60);
 
 function nowSeconds() {
   return Math.floor(Date.now() / 1000);
@@ -29,6 +30,15 @@ function getRefreshSecret() {
     || process.env.ACCESS_TOKEN_SECRET
     || process.env.JWT_SECRET
     || 'aura-refresh-secret-dev'
+  ).trim();
+}
+
+function getLaunchSecret() {
+  return String(
+    process.env.LAUNCH_TOKEN_SECRET
+    || process.env.ACCESS_TOKEN_SECRET
+    || process.env.JWT_SECRET
+    || 'aura-launch-secret-dev'
   ).trim();
 }
 
@@ -93,6 +103,41 @@ export async function createRefreshToken({ uid, sid, deviceId = '', tokenVersion
   return { token, iat, exp, hash };
 }
 
+export function createLaunchToken({
+  uid,
+  uidShort,
+  sid,
+  hwidHash,
+  deviceId = '',
+  tokenVersion = 1,
+  launcherVersion = ''
+}) {
+  const secret = getLaunchSecret();
+  const iat = nowSeconds();
+  const exp = iat + LAUNCH_TTL_SECONDS;
+
+  const payload = {
+    sub: String(uid || ''),
+    uidShort: String(uidShort || ''),
+    sid: String(sid || ''),
+    hwidHash: String(hwidHash || ''),
+    deviceId: String(deviceId || ''),
+    tv: Number(tokenVersion || 1),
+    lv: String(launcherVersion || ''),
+    typ: 'launch',
+    iat,
+    exp,
+    iss: String(process.env.TOKEN_ISSUER || process.env.APP_URL || 'aura')
+  };
+
+  const token = jwt.sign(payload, secret, {
+    algorithm: 'HS256',
+    noTimestamp: true
+  });
+
+  return { token, iat, exp };
+}
+
 export function verifyAccessToken(token) {
   try {
     const decoded = jwt.verify(String(token || ''), getAccessSecret(), {
@@ -112,6 +157,20 @@ export function verifyRefreshToken(token) {
     return { ok: true, decoded };
   } catch (error) {
     return { ok: false, message: error?.message || 'Invalid refresh token.' };
+  }
+}
+
+export function verifyLaunchToken(token) {
+  try {
+    const decoded = jwt.verify(String(token || ''), getLaunchSecret(), {
+      algorithms: ['HS256']
+    });
+    if (String(decoded?.typ || '') !== 'launch') {
+      return { ok: false, message: 'Invalid launch token type.' };
+    }
+    return { ok: true, decoded };
+  } catch (error) {
+    return { ok: false, message: error?.message || 'Invalid launch token.' };
   }
 }
 

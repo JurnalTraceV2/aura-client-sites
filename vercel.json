@@ -121,6 +121,10 @@
       "destination": "/api/launcher.js"
     },
     {
+      "source": "/api/launcher/launch-token",
+      "destination": "/api/launcher.js"
+    },
+    {
       "source": "/api/launcher/jar",
       "destination": "/api/launcher.js"
     },
