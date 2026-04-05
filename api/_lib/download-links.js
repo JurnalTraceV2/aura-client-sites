@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { getRequestBaseUrl } from './http.js';
 
-const DOWNLOAD_LINK_TTL_MS = Number(process.env.DOWNLOAD_LINK_TTL_MS || 5 * 60 * 1000);
+const DOWNLOAD_LINK_TTL_MS = Number(process.env.DOWNLOAD_LINK_TTL_MS || 15 * 60 * 1000);
 
 function getSigningSecret() {
   const explicit = String(process.env.DOWNLOAD_LINK_SECRET || '').trim();

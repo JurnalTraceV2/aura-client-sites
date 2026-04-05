@@ -50,17 +50,20 @@ export default async function handler(req, res) {
   try {
     const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
 
+
     // Security checks ONLY for non-public artifacts
     if (!isPublicType) {
       if (tokenPayload.ip && String(tokenPayload.ip).trim() !== ip) {
         return res.status(403).json({ ok: false, error: 'Download token IP mismatch.' });
       }
 
+/*
       const usedTokenKey = createHash('sha256').update(`${userId}:${tokenId}`, 'utf8').digest('hex');
       const usedSnapshot = await get(ref(db, `used_download_tokens/${usedTokenKey}`));
       if (usedSnapshot.exists()) {
         return res.status(403).json({ ok: false, error: 'Download token already used.' });
       }
+*/
 
       const userSnapshot = await get(ref(db, `users/${userId}`));
       const user = userSnapshot.exists() ? (userSnapshot.val() || {}) : {};
@@ -74,6 +77,7 @@ export default async function handler(req, res) {
         return res.status(403).json({ ok: false, error: 'Subscription inactive.' });
       }
 
+/*
       // Mark token as used
       await set(ref(db, `used_download_tokens/${usedTokenKey}`), {
         uid: userId,
@@ -82,6 +86,7 @@ export default async function handler(req, res) {
         usedAt: Date.now(),
         ip
       });
+*/
     }
 
     let artifact;
