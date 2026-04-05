@@ -2,6 +2,8 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
+const ARTIFACTS_DIR = toAbsolutePath('artifacts');
+
 function toAbsolutePath(artifactPath) {
   const raw = String(artifactPath || '').trim();
   if (!raw) {
@@ -37,12 +39,37 @@ function inferContentType(fileName, fallback) {
   return fallback;
 }
 
+function resolveNewestClientJarPath() {
+  if (!ARTIFACTS_DIR || !fs.existsSync(ARTIFACTS_DIR)) {
+    return '';
+  }
+
+  const entries = fs
+    .readdirSync(ARTIFACTS_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.jar'))
+    .map((entry) => {
+      const absolutePath = path.join(ARTIFACTS_DIR, entry.name);
+      const stat = fs.statSync(absolutePath);
+      return {
+        absolutePath,
+        fileName: entry.name,
+        mtimeMs: stat.mtimeMs
+      };
+    })
+    .sort((left, right) => right.mtimeMs - left.mtimeMs);
+
+  return entries[0]?.absolutePath || '';
+}
+
 function clientConfig() {
-  const fileName = String(process.env.CLIENT_ARTIFACT_NAME || 'Aura.jar').trim();
+  const configuredPath = toAbsolutePath(process.env.CLIENT_ARTIFACT_PATH || process.env.CLIENT_JAR_PATH || 'artifacts/Aura.jar');
+  const latestJarPath = resolveNewestClientJarPath();
+  const absolutePath = latestJarPath || configuredPath;
+  const fileName = path.basename(absolutePath || String(process.env.CLIENT_ARTIFACT_NAME || 'Aura.jar').trim());
   return {
     type: 'client',
     externalUrl: String(process.env.CLIENT_ARTIFACT_URL || process.env.CLIENT_DOWNLOAD_URL || '').trim(),
-    absolutePath: toAbsolutePath(process.env.CLIENT_ARTIFACT_PATH || process.env.CLIENT_JAR_PATH || 'artifacts/Aura.jar'),
+    absolutePath,
     fileName,
     version: String(process.env.CLIENT_VERSION || '1.0.0').trim(),
     hash: String(process.env.CLIENT_SHA256 || '').trim().toLowerCase(),
