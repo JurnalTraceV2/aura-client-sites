@@ -1,23 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;700;900&display=swap');
 @import "tailwindcss";
 
-@theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
-}
-
 body {
   background-color: #09090b;
   color: #f8fafc;
-  font-family: var(--font-sans);
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
+.font-display, h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Premium subtle grid */
 .bg-grid-pattern {
   background-image: 
     linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
@@ -25,7 +19,6 @@ h1, h2, h3, h4, h5, h6 {
   background-size: 40px 40px;
 }
 
-/* Sleek scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
