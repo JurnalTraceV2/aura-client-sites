@@ -42,3 +42,11 @@ Firebase backend env must also be set in Vercel:
 - `FIREBASE_APP_ID`
 - `FIREBASE_DATABASE_URL`
 - `FIREBASE_WEB_API_KEY`
+
+## Artifact Flow
+
+Drop the latest launcher `.exe` and client `.jar` into `artifacts/` and follow `artifacts/README.md`.
+
+- `npm run build` and `npm run vercel-build` auto-generate `artifacts/release-metadata.env`
+- the newest launcher is synced to `public/downloads/AuraLauncher.exe`
+- API artifact delivery prefers local files from `artifacts/` over stale external URLs

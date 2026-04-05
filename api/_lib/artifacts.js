@@ -3,6 +3,8 @@ import fs from 'fs';
 import path from 'path';
 
 const ARTIFACTS_DIR = toAbsolutePath('artifacts');
+const RELEASE_METADATA_PATH = ARTIFACTS_DIR ? path.join(ARTIFACTS_DIR, 'release-metadata.env') : '';
+let cachedReleaseMetadata = null;
 
 function toAbsolutePath(artifactPath) {
   const raw = String(artifactPath || '').trim();
@@ -18,6 +20,95 @@ function toAbsolutePath(artifactPath) {
 function parsePositiveNumber(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function hasOwn(target, key) {
+  return Object.prototype.hasOwnProperty.call(target, key);
+}
+
+function parseEnvFile(text) {
+  const result = {};
+  for (const rawLine of String(text || '').split(/\r?\n/g)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) {
+      continue;
+    }
+
+    const separatorIndex = line.indexOf('=');
+    if (separatorIndex <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, separatorIndex).trim();
+    if (!key) {
+      continue;
+    }
+
+    let value = line.slice(separatorIndex + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"'))
+      || (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    result[key] = value;
+  }
+
+  return result;
+}
+
+function readReleaseMetadata() {
+  if (cachedReleaseMetadata !== null) {
+    return cachedReleaseMetadata;
+  }
+
+  if (!RELEASE_METADATA_PATH || !fs.existsSync(RELEASE_METADATA_PATH)) {
+    cachedReleaseMetadata = {};
+    return cachedReleaseMetadata;
+  }
+
+  try {
+    cachedReleaseMetadata = parseEnvFile(fs.readFileSync(RELEASE_METADATA_PATH, 'utf8'));
+  } catch (error) {
+    console.warn('Failed to read release metadata:', error);
+    cachedReleaseMetadata = {};
+  }
+
+  return cachedReleaseMetadata;
+}
+
+function lookupArtifactSetting(keys) {
+  const metadata = readReleaseMetadata();
+
+  for (const key of keys) {
+    if (hasOwn(metadata, key)) {
+      return String(metadata[key] ?? '');
+    }
+  }
+
+  for (const key of keys) {
+    if (hasOwn(process.env, key)) {
+      return String(process.env[key] ?? '');
+    }
+  }
+
+  return undefined;
+}
+
+function getArtifactSetting(keys, fallback = '', options = {}) {
+  const { allowEmpty = false } = options;
+  const raw = lookupArtifactSetting(keys);
+  if (raw === undefined) {
+    return fallback;
+  }
+
+  const value = String(raw).trim();
+  if (!value && !allowEmpty) {
+    return fallback;
+  }
+
+  return value;
 }
 
 function computeSha256Hex(filePath) {
@@ -37,6 +128,56 @@ function inferContentType(fileName, fallback) {
     return 'application/vnd.microsoft.portable-executable';
   }
   return fallback;
+}
+
+function formatVersionTimestamp(mtimeMs) {
+  const date = new Date(mtimeMs);
+  const pad = (value) => String(value).padStart(2, '0');
+  return [
+    date.getUTCFullYear(),
+    pad(date.getUTCMonth() + 1),
+    pad(date.getUTCDate())
+  ].join('') + '-' + [
+    pad(date.getUTCHours()),
+    pad(date.getUTCMinutes()),
+    pad(date.getUTCSeconds())
+  ].join('');
+}
+
+function sanitizeVersionPart(value, fallback = 'artifact') {
+  return String(value || '')
+    .trim()
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    || fallback;
+}
+
+function buildAutoVersion(filePath, fileName, actualHash = '') {
+  const stat = fs.statSync(filePath);
+  const shortHash = String(actualHash || computeSha256Hex(filePath)).slice(0, 12);
+  const versionBase = sanitizeVersionPart(path.basename(fileName || filePath, path.extname(fileName || filePath)));
+  return `${versionBase}-${formatVersionTimestamp(stat.mtimeMs)}-${shortHash}`;
+}
+
+function shouldUseExternalUrl(absolutePath, externalUrl) {
+  const normalizedUrl = String(externalUrl || '').trim();
+  if (!normalizedUrl) {
+    return false;
+  }
+
+  const preferExternal = String(getArtifactSetting(['PREFER_EXTERNAL_ARTIFACT_URLS'], ''))
+    .trim()
+    .toLowerCase() === 'true';
+
+  if (preferExternal) {
+    return true;
+  }
+
+  if (!absolutePath) {
+    return true;
+  }
+
+  return !fs.existsSync(absolutePath);
 }
 
 function resolveNewestClientJarPath() {
@@ -62,61 +203,103 @@ function resolveNewestClientJarPath() {
 }
 
 function clientConfig() {
-  const configuredPath = toAbsolutePath(process.env.CLIENT_ARTIFACT_PATH || process.env.CLIENT_JAR_PATH || 'artifacts/Aura.jar');
+  const configuredPath = toAbsolutePath(
+    getArtifactSetting(['CLIENT_ARTIFACT_PATH', 'CLIENT_JAR_PATH'], 'artifacts/Aura.jar')
+  );
   const latestJarPath = resolveNewestClientJarPath();
   const absolutePath = latestJarPath || configuredPath;
-  const fileName = path.basename(absolutePath || String(process.env.CLIENT_ARTIFACT_NAME || 'Aura.jar').trim());
+  const fileName = getArtifactSetting(
+    ['CLIENT_ARTIFACT_NAME'],
+    path.basename(absolutePath || 'Aura.jar')
+  );
+  const externalUrl = getArtifactSetting(
+    ['CLIENT_ARTIFACT_URL', 'CLIENT_DOWNLOAD_URL'],
+    '',
+    { allowEmpty: true }
+  );
   return {
     type: 'client',
-    externalUrl: String(process.env.CLIENT_ARTIFACT_URL || process.env.CLIENT_DOWNLOAD_URL || '').trim(),
+    externalUrl: shouldUseExternalUrl(absolutePath, externalUrl) ? externalUrl : '',
     absolutePath,
     fileName,
-    version: String(process.env.CLIENT_VERSION || '1.0.0').trim(),
-    hash: String(process.env.CLIENT_SHA256 || '').trim().toLowerCase(),
-    size: parsePositiveNumber(process.env.CLIENT_SIZE, 0),
-    contentType: String(process.env.CLIENT_ARTIFACT_CONTENT_TYPE || inferContentType(fileName, 'application/java-archive')).trim()
+    version: getArtifactSetting(['CLIENT_VERSION'], ''),
+    hash: getArtifactSetting(['CLIENT_SHA256'], '').toLowerCase(),
+    size: parsePositiveNumber(getArtifactSetting(['CLIENT_SIZE'], ''), 0),
+    contentType: getArtifactSetting(
+      ['CLIENT_ARTIFACT_CONTENT_TYPE'],
+      inferContentType(fileName, 'application/java-archive')
+    )
   };
 }
 
 function launcherConfig() {
-  const fileName = String(process.env.LAUNCHER_ARTIFACT_NAME || 'AuraLauncher.exe').trim();
+  const absolutePath = toAbsolutePath(
+    getArtifactSetting(['LAUNCHER_ARTIFACT_PATH'], 'artifacts/AuraLauncher.exe')
+  );
+  const fileName = getArtifactSetting(
+    ['LAUNCHER_ARTIFACT_NAME'],
+    path.basename(absolutePath || 'AuraLauncher.exe')
+  );
+  const externalUrl = getArtifactSetting(['LAUNCHER_ARTIFACT_URL'], '', { allowEmpty: true });
   return {
     type: 'launcher',
-    externalUrl: String(process.env.LAUNCHER_ARTIFACT_URL || '').trim(),
-    absolutePath: toAbsolutePath(process.env.LAUNCHER_ARTIFACT_PATH || 'artifacts/AuraLauncher.exe'),
+    externalUrl: shouldUseExternalUrl(absolutePath, externalUrl) ? externalUrl : '',
+    absolutePath,
     fileName,
-    version: String(process.env.LAUNCHER_VERSION || '1.0.0').trim(),
-    hash: String(process.env.LAUNCHER_SHA256 || '').trim().toLowerCase(),
-    size: parsePositiveNumber(process.env.LAUNCHER_SIZE, 0),
-    contentType: String(process.env.LAUNCHER_ARTIFACT_CONTENT_TYPE || inferContentType(fileName, 'application/octet-stream')).trim()
+    version: getArtifactSetting(['LAUNCHER_VERSION'], ''),
+    hash: getArtifactSetting(['LAUNCHER_SHA256'], '').toLowerCase(),
+    size: parsePositiveNumber(getArtifactSetting(['LAUNCHER_SIZE'], ''), 0),
+    contentType: getArtifactSetting(
+      ['LAUNCHER_ARTIFACT_CONTENT_TYPE'],
+      inferContentType(fileName, 'application/octet-stream')
+    )
   };
 }
 
 function jreConfig() {
-  const fileName = String(process.env.JRE_ARTIFACT_NAME || 'jre.zip').trim();
+  const absolutePath = toAbsolutePath(getArtifactSetting(['JRE_ARTIFACT_PATH'], 'artifacts/jre.zip'));
+  const fileName = getArtifactSetting(['JRE_ARTIFACT_NAME'], path.basename(absolutePath || 'jre.zip'));
+  const externalUrl = getArtifactSetting(['JRE_ARTIFACT_URL'], 'https://github.com/Unpelsi/jre/releases/download/1.0/jre.zip', { allowEmpty: true });
   return {
     type: 'jre',
-    externalUrl: String(process.env.JRE_ARTIFACT_URL || 'https://github.com/Unpelsi/jre/releases/download/1.0/jre.zip').trim(),
-    absolutePath: toAbsolutePath(process.env.JRE_ARTIFACT_PATH || 'artifacts/jre.zip'),
+    externalUrl: shouldUseExternalUrl(absolutePath, externalUrl) ? externalUrl : '',
+    absolutePath,
     fileName,
-    version: String(process.env.JRE_VERSION || '21').trim(),
-    hash: String(process.env.JRE_SHA256 || '').trim().toLowerCase(),
-    size: parsePositiveNumber(process.env.JRE_SIZE, 0),
-    contentType: String(process.env.JRE_ARTIFACT_CONTENT_TYPE || inferContentType(fileName, 'application/zip')).trim()
+    version: getArtifactSetting(['JRE_VERSION'], '21'),
+    hash: getArtifactSetting(['JRE_SHA256'], '').toLowerCase(),
+    size: parsePositiveNumber(getArtifactSetting(['JRE_SIZE'], ''), 0),
+    contentType: getArtifactSetting(
+      ['JRE_ARTIFACT_CONTENT_TYPE'],
+      inferContentType(fileName, 'application/zip')
+    )
   };
 }
 
 function assetsConfig() {
-  const fileName = String(process.env.ASSETS_ARTIFACT_NAME || 'MinecraftAssets.zip').trim();
+  const absolutePath = toAbsolutePath(
+    getArtifactSetting(['ASSETS_ARTIFACT_PATH'], 'artifacts/MinecraftAssets.zip')
+  );
+  const fileName = getArtifactSetting(
+    ['ASSETS_ARTIFACT_NAME'],
+    path.basename(absolutePath || 'MinecraftAssets.zip')
+  );
+  const externalUrl = getArtifactSetting(
+    ['ASSETS_ARTIFACT_URL'],
+    'https://github.com/Unpelsi/minecraft/releases/download/1.0/MinecraftAssets.zip',
+    { allowEmpty: true }
+  );
   return {
     type: 'assets',
-    externalUrl: String(process.env.ASSETS_ARTIFACT_URL || 'https://github.com/Unpelsi/minecraft/releases/download/1.0/MinecraftAssets.zip').trim(),
-    absolutePath: toAbsolutePath(process.env.ASSETS_ARTIFACT_PATH || 'artifacts/MinecraftAssets.zip'),
+    externalUrl: shouldUseExternalUrl(absolutePath, externalUrl) ? externalUrl : '',
+    absolutePath,
     fileName,
-    version: String(process.env.ASSETS_VERSION || '1.0.0').trim(),
-    hash: String(process.env.ASSETS_SHA256 || '').trim().toLowerCase(),
-    size: parsePositiveNumber(process.env.ASSETS_SIZE, 0),
-    contentType: String(process.env.ASSETS_ARTIFACT_CONTENT_TYPE || inferContentType(fileName, 'application/zip')).trim()
+    version: getArtifactSetting(['ASSETS_VERSION'], '1.0.0'),
+    hash: getArtifactSetting(['ASSETS_SHA256'], '').toLowerCase(),
+    size: parsePositiveNumber(getArtifactSetting(['ASSETS_SIZE'], ''), 0),
+    contentType: getArtifactSetting(
+      ['ASSETS_ARTIFACT_CONTENT_TYPE'],
+      inferContentType(fileName, 'application/zip')
+    )
   };
 }
 
@@ -157,9 +340,13 @@ export function readArtifactMeta(type) {
 
   const actualHash = computeSha256Hex(cfg.absolutePath);
   const actualSize = fs.statSync(cfg.absolutePath).size;
+  const staleHash = Boolean(cfg.hash) && cfg.hash !== actualHash;
+  const staleSize = Boolean(cfg.size) && cfg.size !== actualSize;
+  const autoVersion = buildAutoVersion(cfg.absolutePath, cfg.fileName, actualHash);
 
   let hash = cfg.hash || actualHash;
   let size = cfg.size || actualSize;
+  let version = cfg.version || autoVersion;
 
   // Keep launcher/client delivery resilient: if env metadata is stale,
   // return real file values so manifest verification stays in sync.
@@ -169,9 +356,13 @@ export function readArtifactMeta(type) {
   if (size !== actualSize) {
     size = actualSize;
   }
+  if (staleHash || staleSize) {
+    version = autoVersion;
+  }
 
   return {
     ...cfg,
+    version,
     hash,
     size
   };
