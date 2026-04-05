@@ -115,8 +115,11 @@ export default async function handler(req, res) {
     }
 
     if (!fs.existsSync(artifact.absolutePath)) {
+      console.error(`[DOWNLOAD] Artifact NOT found at: ${artifact.absolutePath}`);
       return res.status(404).json({ ok: false, error: 'Artifact not found.' });
     }
+
+    console.log(`[DOWNLOAD] Serving artifact from: ${artifact.absolutePath}`);
 
     res.setHeader('Content-Type', artifact.contentType || 'application/octet-stream');
     res.setHeader('Content-Length', String(artifact.size));
@@ -124,6 +127,7 @@ export default async function handler(req, res) {
     res.setHeader('Content-Disposition', `attachment; filename="${artifact.fileName}"`);
     res.setHeader('X-Artifact-Version', artifact.version);
     res.setHeader('X-Artifact-Sha256', artifact.hash);
+
     await writeAuditLog('artifact_download_started', {
       uid: userId,
       type: artifactType,
