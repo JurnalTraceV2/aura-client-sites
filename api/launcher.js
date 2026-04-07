@@ -4,6 +4,7 @@ import heartbeatHandler from './launcher/heartbeat.js';
 import verifySessionHandler from './launcher/verify-session.js';
 import launchTokenHandler from './launcher/launch-token.js';
 import artifactHandler from './launcher/artifact.js';
+import securityEventHandler from './launcher/security-event.js';
 
 function getPathname(req) {
   try {
@@ -36,7 +37,15 @@ export default async function handler(req, res) {
     return launchTokenHandler(req, res);
   }
 
-  if (pathname.includes('/jar') || pathname.includes('/jre') || pathname.includes('/assets')) {
+  if (pathname.includes('/security-event')) {
+    return securityEventHandler(req, res);
+  }
+
+  if (
+    pathname.includes('/artifact') || 
+    pathname.includes('/jar') || 
+    pathname.includes('/jre') || 
+    pathname.includes('/assets')) {
     return artifactHandler(req, res);
   }
 
