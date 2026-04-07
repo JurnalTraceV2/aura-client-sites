@@ -9,7 +9,7 @@ const PUBLIC_LAUNCHER_DIR = path.join(ROOT_DIR, 'public', 'launcher');
 const RELEASE_METADATA_PATH = path.join(ARTIFACTS_DIR, 'release-metadata.env');
 
 const CANONICAL_CLIENT_NAME = 'Aura.jar';
-const CANONICAL_LAUNCHER_NAME = 'AuraLauncher.exe';
+const CANONICAL_LAUNCHER_NAME = 'Auraloader.exe';
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });

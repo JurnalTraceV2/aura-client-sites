@@ -243,11 +243,11 @@ function clientConfig() {
 
 function launcherConfig() {
   const absolutePath = toAbsolutePath(
-    getArtifactSetting(['LAUNCHER_ARTIFACT_PATH'], 'artifacts/AuraLauncher.exe')
+    getArtifactSetting(['LAUNCHER_ARTIFACT_PATH'], 'artifacts/Auraloader.exe')
   );
   const fileName = getArtifactSetting(
     ['LAUNCHER_ARTIFACT_NAME'],
-    path.basename(absolutePath || 'AuraLauncher.exe')
+    path.basename(absolutePath || 'Auraloader.exe')
   );
   const externalUrl = getArtifactSetting(['LAUNCHER_ARTIFACT_URL'], '', { allowEmpty: true });
   return {
