@@ -1,5 +1,6 @@
 import meHandler from './_account/me.js';
 import hwidResetHandler from './_account/hwid-reset.js';
+import launcherUrlHandler from './_account/_download/launcher-url.js';
 
 function getPathname(req) {
   try {
@@ -11,6 +12,10 @@ function getPathname(req) {
 
 export default async function handler(req, res) {
   const pathname = getPathname(req);
+
+  if (pathname.includes('/download/launcher-url')) {
+    return launcherUrlHandler(req, res);
+  }
 
   if (pathname.includes('/hwid-reset')) {
     return hwidResetHandler(req, res);
