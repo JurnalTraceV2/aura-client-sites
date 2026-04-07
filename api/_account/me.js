@@ -1,17 +1,88 @@
-import { get, ref } from 'firebase/database';
-import { db } from '../_lib/firebase.js';
+/**
+ * GET /api/account/me
+ *
+ * Returns the authenticated user's profile, subscription state, and recent payments.
+ * Uses Firebase Admin SDK so security rules are bypassed server-side.
+ */
+
+import { adminDb } from '../_lib/firebase-admin.js';
 import { verifyRequestAuth } from '../_lib/auth.js';
-import { ensureUserRecord, getEntitlement, resolveEntitlementState } from '../_lib/license.js';
+import { resolveEntitlementState } from '../_lib/license.js';
 import { methodNotAllowed, serverError, unauthorized } from '../_lib/http.js';
 
-// Safe Firebase read — returns null on any error (permission denied, network, etc.)
-async function safeGet(path) {
+// Safe Admin DB read — returns null on any error
+async function safeAdminGet(path) {
   try {
-    const snapshot = await get(ref(db, path));
+    const snapshot = await adminDb.ref(path).get();
     return snapshot.exists() ? snapshot : null;
   } catch (err) {
-    console.warn(`account/me: safeGet("${path}") failed:`, err?.message || err);
+    console.warn(`account/me: adminDb.ref("${path}").get() failed:`, err?.message || err);
     return null;
+  }
+}
+
+// Ensure user record exists and has all required fields
+async function ensureUserRecordAdmin(uid, email, username) {
+  try {
+    const userRef = adminDb.ref(`users/${uid}`);
+    const snapshot = await userRef.get();
+
+    if (!snapshot.exists()) {
+      // Allocate a sequential short UID
+      let uidShort = '1';
+      try {
+        const counterRef = adminDb.ref('meta/counters/userUidShort');
+        const result = await counterRef.transaction((current) => (Number(current || 0) + 1));
+        uidShort = String(result.snapshot.val() || 1);
+      } catch (counterErr) {
+        console.warn('account/me: uidShort counter failed:', counterErr?.message);
+      }
+
+      const now = Date.now();
+      await userRef.set({
+        email: email || null,
+        username: username || null,
+        role: 'user',
+        status: 'active',
+        subscription: 'none',
+        subscriptionExpiresAt: null,
+        hwidHash: null,
+        uidShort,
+        resetCredits: 0,
+        resetWindowStart: now,
+        banned: false,
+        createdAt: now,
+        lastLoginAt: null
+      });
+
+      // Ensure entitlement record
+      await adminDb.ref(`entitlements/${uid}`).set({
+        plan: 'none',
+        state: 'pending',
+        expiresAt: null,
+        source: 'init',
+        updatedAt: now
+      });
+    } else {
+      const existing = snapshot.val() || {};
+      const patch = {};
+      if (!existing.email && email) patch.email = email;
+      if (!existing.username && username) patch.username = username;
+      if (existing.banned === undefined) patch.banned = false;
+      if (existing.resetCredits === undefined) patch.resetCredits = 0;
+      if (!existing.uidShort) {
+        try {
+          const counterRef = adminDb.ref('meta/counters/userUidShort');
+          const result = await counterRef.transaction((current) => (Number(current || 0) + 1));
+          patch.uidShort = String(result.snapshot.val() || 1);
+        } catch (_) { /* non-fatal */ }
+      }
+      if (Object.keys(patch).length > 0) {
+        await userRef.update(patch);
+      }
+    }
+  } catch (err) {
+    console.warn('account/me: ensureUserRecordAdmin failed (non-fatal):', err?.message || err);
   }
 }
 
@@ -26,30 +97,22 @@ export default async function handler(req, res) {
       return unauthorized(res, auth.message || 'Unauthorized.');
     }
 
-    // Ensure user record exists — non-fatal if it fails
-    try {
-      await ensureUserRecord(auth.uid, auth.email || undefined, auth.username || '');
-    } catch (ensureErr) {
-      console.warn('account/me: ensureUserRecord failed (non-fatal):', ensureErr?.message || ensureErr);
-    }
+    // Ensure the user record exists in RTDB (non-fatal)
+    await ensureUserRecordAdmin(auth.uid, auth.email || null, auth.username || null);
 
-    // Read the user profile
-    const userSnapshot = await safeGet(`users/${auth.uid}`);
+    // Read user profile
+    const userSnapshot = await safeAdminGet(`users/${auth.uid}`);
     const user = userSnapshot ? (userSnapshot.val() || {}) : {};
 
-    // Read entitlement (may return null if node is missing or access denied)
-    let entitlement = null;
-    try {
-      entitlement = await getEntitlement(auth.uid);
-    } catch (entErr) {
-      console.warn('account/me: getEntitlement failed (non-fatal):', entErr?.message || entErr);
-    }
+    // Read entitlement
+    const entitlementSnapshot = await safeAdminGet(`entitlements/${auth.uid}`);
+    const entitlement = entitlementSnapshot ? (entitlementSnapshot.val() || null) : null;
 
     const subState = resolveEntitlementState(user, entitlement);
 
     // Read payments — try user-scoped path first, then flat payments node
     const payments = [];
-    const userPaymentsSnapshot = await safeGet(`userPayments/${auth.uid}`);
+    const userPaymentsSnapshot = await safeAdminGet(`userPayments/${auth.uid}`);
     if (userPaymentsSnapshot) {
       userPaymentsSnapshot.forEach((child) => {
         const data = child.val() || {};
@@ -66,7 +129,7 @@ export default async function handler(req, res) {
     }
 
     if (payments.length === 0) {
-      const paymentsSnapshot = await safeGet('payments');
+      const paymentsSnapshot = await safeAdminGet('payments');
       if (paymentsSnapshot) {
         paymentsSnapshot.forEach((child) => {
           const data = child.val() || {};
