@@ -1,248 +1,55 @@
 {
   "version": 2,
+  "framework": "vite",
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist",
-  "public": "public",
   "headers": [
     {
       "source": "/fonts/(.*)",
       "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
     },
     {
       "source": "/api/(.*)",
       "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, OPTIONS"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
-        }
-      ]
-    },
-    {
-      "source": "/downloads/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        }
-      ]
-    },
-    {
-      "source": "/launcher/(.*)",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400"
-        }
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
       ]
     },
     {
       "source": "/artifacts/(.*)",
       "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/java-archive"
-        },
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
+        { "key": "Content-Type", "value": "application/java-archive" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
     }
   ],
-  "builds": [
-    {
-      "src": "api/auth.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/account.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/payments.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/launcher.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "artifacts/**",
-          "public/downloads/**"
-        ]
-      }
-    },
-    {
-      "src": "api/download/artifact.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": [
-          "artifacts/**",
-          "public/downloads/**"
-        ]
-      }
-    },
-    {
-      "src": "api/client/mods/verify.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/client.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/loader_compat.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/bind_hwid_compat.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+  "functions": {
+    "api/*.js": {
+      "includeFiles": "artifacts/**"
     }
-  ],
+  },
   "rewrites": [
-    {
-      "source": "/api/loader.php",
-      "destination": "/api/loader_compat.js"
-    },
-    {
-      "source": "/api/bind_hwid.php",
-      "destination": "/api/bind_hwid_compat.js"
-    },
-    {
-      "source": "/api/admin/bind_hwid.php",
-      "destination": "/api/bind_hwid_compat.js"
-    },
-    {
-      "source": "/api/auth/login",
-      "destination": "/api/auth.js"
-    },
-    {
-      "source": "/api/auth/refresh",
-      "destination": "/api/auth.js"
-    },
-    {
-      "source": "/api/account/me",
-      "destination": "/api/account.js"
-    },
-    {
-      "source": "/api/account/hwid-reset",
-      "destination": "/api/account.js"
-    },
-    {
-      "source": "/api/account/download/launcher-url",
-      "destination": "/api/account.js"
-    },
-    {
-      "source": "/api/payments/create",
-      "destination": "/api/payments.js"
-    },
-    {
-      "source": "/api/payments/check",
-      "destination": "/api/payments.js"
-    },
-    {
-      "source": "/api/payments/webhook",
-      "destination": "/api/payments.js"
-    },
-    {
-      "source": "/api/launcher/login",
-      "destination": "/api/launcher.js"
-    },
-    {
-      "source": "/api/launcher/manifest",
-      "destination": "/api/launcher.js"
-    },
-    {
-      "source": "/api/launcher/heartbeat",
-      "destination": "/api/launcher.js"
-    },
-    {
-      "source": "/api/launcher/verify-session",
-      "destination": "/api/launcher.js"
-    },
-    {
-      "source": "/api/launcher/launch-token",
-      "destination": "/api/launcher.js"
-    },
-    {
-      "source": "/api/launcher/jar",
-      "destination": "/api/launcher.js"
-    },
-    {
-      "source": "/api/launcher/jre",
-      "destination": "/api/launcher.js"
-    },
-    {
-      "source": "/api/launcher/assets",
-      "destination": "/api/launcher.js"
-    },
-    {
-      "source": "/api/client/mods/verify",
-      "destination": "/api/client.js"
-    },
-    {
-      "source": "/api/download/artifact",
-      "destination": "/api/download/artifact.js"
-    },
-    {
-      "source": "/downloads/(.*)",
-      "destination": "/api/download/artifact.js?type=$1"
-    },
-    {
-      "source": "/artifacts/:file",
-      "destination": "/artifacts/:file"
-    },
-    {
-      "source": "/launcher/(.*)",
-      "destination": "/launcher/$1"
-    },
-    {
-      "source": "/offer",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/privacy",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/contacts",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/((?!api|downloads|offer|privacy|contacts).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/loader.php", "destination": "/api/loader_compat.js" },
+    { "source": "/api/bind_hwid.php", "destination": "/api/bind_hwid_compat.js" },
+    { "source": "/api/auth/login", "destination": "/api/auth.js" },
+    { "source": "/api/auth/refresh", "destination": "/api/auth.js" },
+    { "source": "/api/account/me", "destination": "/api/account.js" },
+    { "source": "/api/account/hwid-reset", "destination": "/api/account.js" },
+    { "source": "/api/payments/create", "destination": "/api/payments.js" },
+    { "source": "/api/payments/check", "destination": "/api/payments.js" },
+    { "source": "/api/payments/webhook", "destination": "/api/payments.js" },
+    { "source": "/api/launcher/:path*", "destination": "/api/launcher.js" },
+    { "source": "/api/client/:path*", "destination": "/api/client.js" },
+    { "source": "/api/download/artifact", "destination": "/api/download/artifact.js" },
+    { "source": "/downloads/(.*)", "destination": "/api/download/artifact.js?type=$1" },
+    { "source": "/offer", "destination": "/index.html" },
+    { "source": "/privacy", "destination": "/index.html" },
+    { "source": "/contacts", "destination": "/index.html" },
+    { "source": "/((?!api|downloads|offer|privacy|contacts).*)", "destination": "/index.html" }
   ]
 }
