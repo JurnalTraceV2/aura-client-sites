@@ -29,7 +29,7 @@
     }
   ],
   "functions": {
-    "api/*.js": {
+    "api/**/*.js": {
       "includeFiles": "artifacts/**"
     }
   },

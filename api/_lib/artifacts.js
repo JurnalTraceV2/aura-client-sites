@@ -8,13 +8,22 @@ let cachedReleaseMetadata = null;
 
 function toAbsolutePath(artifactPath) {
   const raw = String(artifactPath || '').trim();
-  if (!raw) {
-    return '';
+  if (!raw || path.isAbsolute(raw)) return raw;
+
+  // Paths to check for 'artifacts' directory
+  const pathsToCheck = [
+    path.resolve(process.cwd(), raw),
+    path.resolve(process.cwd(), '..', raw),
+    path.resolve('/var/task', raw)
+  ];
+
+  for (const p of pathsToCheck) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch {}
   }
-  if (path.isAbsolute(raw)) {
-    return raw;
-  }
-  return path.resolve(process.cwd(), raw);
+
+  return pathsToCheck[0]; // Fallback to current dir
 }
 
 function parsePositiveNumber(value, fallback = 0) {
@@ -323,6 +332,8 @@ export function getArtifactConfig(type) {
 
 export function readArtifactMeta(type) {
   const cfg = getArtifactConfig(type);
+  
+  // If we have an external URL and the file is missing locally, favor the external URL.
   if (cfg.externalUrl) {
     return {
       ...cfg,
@@ -331,11 +342,17 @@ export function readArtifactMeta(type) {
       isExternal: true
     };
   }
-  if (!cfg.absolutePath) {
-    throw new Error(`Artifact path is not configured for type: ${type}`);
-  }
-  if (!fs.existsSync(cfg.absolutePath)) {
-    throw new Error(`Artifact file not found: ${cfg.absolutePath}`);
+
+  // If local file is expected but not found, don't crash the entire function initialization.
+  if (!cfg.absolutePath || !fs.existsSync(cfg.absolutePath)) {
+    console.warn(`Artifact file not found for type ${type}: ${cfg.absolutePath}. Falling back to empty meta.`);
+    return {
+      ...cfg,
+      version: cfg.version || '0.0.0',
+      hash: cfg.hash || '',
+      size: cfg.size || 0,
+      isMissing: true
+    };
   }
 
   const actualHash = computeSha256Hex(cfg.absolutePath);
@@ -348,8 +365,6 @@ export function readArtifactMeta(type) {
   let size = cfg.size || actualSize;
   let version = cfg.version || autoVersion;
 
-  // Keep launcher/client delivery resilient: if env metadata is stale,
-  // return real file values so manifest verification stays in sync.
   if (hash !== actualHash) {
     hash = actualHash;
   }
