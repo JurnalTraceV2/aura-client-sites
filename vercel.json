@@ -40,6 +40,7 @@
     { "source": "/api/auth/refresh", "destination": "/api/auth.js" },
     { "source": "/api/account/me", "destination": "/api/account.js" },
     { "source": "/api/account/hwid-reset", "destination": "/api/account.js" },
+    { "source": "/api/account/download/launcher-url", "destination": "/api/account.js" },
     { "source": "/api/payments/create", "destination": "/api/payments.js" },
     { "source": "/api/payments/check", "destination": "/api/payments.js" },
     { "source": "/api/payments/webhook", "destination": "/api/payments.js" },

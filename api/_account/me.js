@@ -22,12 +22,16 @@ export default async function handler(req, res) {
     const entitlement = await getEntitlement(auth.uid);
     const subState = resolveEntitlementState(user, entitlement);
 
-    const paymentsSnapshot = await get(ref(db, 'payments'));
+    // Try to read payments for this user. The server uses the client SDK so
+    // Firebase security rules apply. We gracefully fall back to an empty list
+    // if the read is rejected (permission denied) or the node doesn't exist.
     const payments = [];
-    if (paymentsSnapshot.exists()) {
-      paymentsSnapshot.forEach((child) => {
-        const data = child.val() || {};
-        if (String(data.userId || '') === auth.uid) {
+    try {
+      // First try user-scoped path (populated by the payments webhook handler)
+      const userPaymentsSnapshot = await get(ref(db, `userPayments/${auth.uid}`));
+      if (userPaymentsSnapshot.exists()) {
+        userPaymentsSnapshot.forEach((child) => {
+          const data = child.val() || {};
           payments.push({
             paymentId: child.key,
             tier: data.tier || null,
@@ -37,8 +41,32 @@ export default async function handler(req, res) {
             createdAt: data.createdAt || null,
             processedAt: data.processedAt || null
           });
+        });
+      }
+
+      // If nothing found via user-scoped path, try the flat payments node
+      if (payments.length === 0) {
+        const paymentsSnapshot = await get(ref(db, 'payments'));
+        if (paymentsSnapshot.exists()) {
+          paymentsSnapshot.forEach((child) => {
+            const data = child.val() || {};
+            if (String(data.userId || '') === auth.uid) {
+              payments.push({
+                paymentId: child.key,
+                tier: data.tier || null,
+                amount: data.amount ?? null,
+                status: data.status || 'pending',
+                providerTxId: data.providerTxId || null,
+                createdAt: data.createdAt || null,
+                processedAt: data.processedAt || null
+              });
+            }
+          });
         }
-      });
+      }
+    } catch (paymentsErr) {
+      // Permission denied or network error — return an empty list rather than 500
+      console.warn('account/me: failed to read payments:', paymentsErr?.message || paymentsErr);
     }
 
     payments.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
