@@ -1,88 +1,148 @@
 /**
  * GET /api/account/me
  *
- * Returns the authenticated user's profile, subscription state, and recent payments.
- * Uses Firebase Admin SDK so security rules are bypassed server-side.
+ * Returns the authenticated user's profile and subscription state.
+ *
+ * Uses Firebase REST API with the user's own ID token, so RTDB Security Rules
+ * are satisfied (the request is made as the authenticated user). No Admin SDK
+ * or service-account key required.
  */
 
-import { adminDb } from '../_lib/firebase-admin.js';
 import { verifyRequestAuth } from '../_lib/auth.js';
 import { resolveEntitlementState } from '../_lib/license.js';
-import { methodNotAllowed, serverError, unauthorized } from '../_lib/http.js';
+import { methodNotAllowed, serverError, unauthorized, extractBearerToken } from '../_lib/http.js';
 
-// Safe Admin DB read — returns null on any error
-async function safeAdminGet(path) {
+const DATABASE_URL = String(
+  process.env.FIREBASE_DATABASE_URL ||
+  'https://gen-lang-client-0640974949-default-rtdb.firebaseio.com'
+).replace(/\/$/, '');
+
+/**
+ * Read a RTDB node via REST API, authenticated as the requesting user.
+ * Returns the parsed value, or null if not found / on any error.
+ */
+async function rtdbGet(path, idToken) {
   try {
-    const snapshot = await adminDb.ref(path).get();
-    return snapshot.exists() ? snapshot : null;
+    const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`;
+    const res = await fetch(url, { method: 'GET' });
+    if (res.status === 404 || res.status === 401 || res.status === 403) {
+      return null;
+    }
+    if (!res.ok) {
+      console.warn(`account/me: rtdbGet("${path}") returned ${res.status}`);
+      return null;
+    }
+    const data = await res.json().catch(() => null);
+    return data; // may be null if node doesn't exist
   } catch (err) {
-    console.warn(`account/me: adminDb.ref("${path}").get() failed:`, err?.message || err);
+    console.warn(`account/me: rtdbGet("${path}") failed:`, err?.message || err);
     return null;
   }
 }
 
-// Ensure user record exists and has all required fields
-async function ensureUserRecordAdmin(uid, email, username) {
+/**
+ * Write / patch a RTDB node via REST API (PATCH = update, PUT = set).
+ * Failures are silently ignored (non-fatal).
+ */
+async function rtdbPatch(path, data, idToken) {
   try {
-    const userRef = adminDb.ref(`users/${uid}`);
-    const snapshot = await userRef.get();
+    const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`;
+    await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch (err) {
+    console.warn(`account/me: rtdbPatch("${path}") failed:`, err?.message || err);
+  }
+}
 
-    if (!snapshot.exists()) {
-      // Allocate a sequential short UID
-      let uidShort = '1';
-      try {
-        const counterRef = adminDb.ref('meta/counters/userUidShort');
-        const result = await counterRef.transaction((current) => (Number(current || 0) + 1));
-        uidShort = String(result.snapshot.val() || 1);
-      } catch (counterErr) {
-        console.warn('account/me: uidShort counter failed:', counterErr?.message);
-      }
-
-      const now = Date.now();
-      await userRef.set({
-        email: email || null,
-        username: username || null,
-        role: 'user',
-        status: 'active',
-        subscription: 'none',
-        subscriptionExpiresAt: null,
-        hwidHash: null,
-        uidShort,
-        resetCredits: 0,
-        resetWindowStart: now,
-        banned: false,
-        createdAt: now,
-        lastLoginAt: null
+/**
+ * Allocate a sequential uidShort by running a conditional update loop.
+ * Returns a string number, or '' on failure.
+ */
+async function allocateUidShort(idToken) {
+  try {
+    // Counter node — needs write access; may fail under restrictive rules, that's OK
+    const url = `${DATABASE_URL}/meta/counters/userUidShort.json?auth=${encodeURIComponent(idToken)}`;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const getRes = await fetch(url);
+      const current = (await getRes.json().catch(() => 0)) || 0;
+      const next = Number(current) + 1;
+      // Conditional write: only succeeds if value hasn't changed
+      const putRes = await fetch(url + `&condition=true`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(next)
       });
+      if (putRes.ok) {
+        return String(next);
+      }
+    }
+    return '';
+  } catch (_) {
+    return '';
+  }
+}
 
-      // Ensure entitlement record
-      await adminDb.ref(`entitlements/${uid}`).set({
-        plan: 'none',
-        state: 'pending',
-        expiresAt: null,
-        source: 'init',
-        updatedAt: now
+/**
+ * Ensure a user record exists in RTDB. Non-fatal — failures are silently ignored.
+ */
+async function ensureUserRecord(uid, email, username, idToken) {
+  try {
+    const existing = await rtdbGet(`users/${uid}`, idToken);
+    if (existing === null || existing === undefined) {
+      // Create fresh record
+      const uidShort = await allocateUidShort(idToken);
+      const now = Date.now();
+      await fetch(`${DATABASE_URL}/users/${uid}.json?auth=${encodeURIComponent(idToken)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email || null,
+          username: username || null,
+          role: 'user',
+          status: 'active',
+          subscription: 'none',
+          subscriptionExpiresAt: null,
+          hwidHash: null,
+          uidShort: uidShort || null,
+          resetCredits: 0,
+          resetWindowStart: now,
+          banned: false,
+          createdAt: now,
+          lastLoginAt: null
+        })
+      });
+      // Create entitlement record
+      await fetch(`${DATABASE_URL}/entitlements/${uid}.json?auth=${encodeURIComponent(idToken)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: 'none',
+          state: 'pending',
+          expiresAt: null,
+          source: 'init',
+          updatedAt: now
+        })
       });
     } else {
-      const existing = snapshot.val() || {};
+      // Patch missing fields
       const patch = {};
       if (!existing.email && email) patch.email = email;
       if (!existing.username && username) patch.username = username;
-      if (existing.banned === undefined) patch.banned = false;
-      if (existing.resetCredits === undefined) patch.resetCredits = 0;
+      if (existing.banned === undefined || existing.banned === null) patch.banned = false;
+      if (existing.resetCredits === undefined || existing.resetCredits === null) patch.resetCredits = 0;
       if (!existing.uidShort) {
-        try {
-          const counterRef = adminDb.ref('meta/counters/userUidShort');
-          const result = await counterRef.transaction((current) => (Number(current || 0) + 1));
-          patch.uidShort = String(result.snapshot.val() || 1);
-        } catch (_) { /* non-fatal */ }
+        const uidShort = await allocateUidShort(idToken);
+        if (uidShort) patch.uidShort = uidShort;
       }
       if (Object.keys(patch).length > 0) {
-        await userRef.update(patch);
+        await rtdbPatch(`users/${uid}`, patch, idToken);
       }
     }
   } catch (err) {
-    console.warn('account/me: ensureUserRecordAdmin failed (non-fatal):', err?.message || err);
+    console.warn('account/me: ensureUserRecord failed (non-fatal):', err?.message || err);
   }
 }
 
@@ -92,58 +152,40 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Verify the Firebase ID token
     const auth = await verifyRequestAuth(req);
     if (!auth.ok) {
       return unauthorized(res, auth.message || 'Unauthorized.');
     }
 
-    // Ensure the user record exists in RTDB (non-fatal)
-    await ensureUserRecordAdmin(auth.uid, auth.email || null, auth.username || null);
+    // Keep the raw ID token for subsequent REST API calls
+    const idToken = extractBearerToken(req);
 
-    // Read user profile
-    const userSnapshot = await safeAdminGet(`users/${auth.uid}`);
-    const user = userSnapshot ? (userSnapshot.val() || {}) : {};
+    // Ensure user record exists (non-fatal)
+    await ensureUserRecord(auth.uid, auth.email || null, auth.username || null, idToken);
+
+    // Read the user profile
+    const user = (await rtdbGet(`users/${auth.uid}`, idToken)) || {};
 
     // Read entitlement
-    const entitlementSnapshot = await safeAdminGet(`entitlements/${auth.uid}`);
-    const entitlement = entitlementSnapshot ? (entitlementSnapshot.val() || null) : null;
+    const entitlement = await rtdbGet(`entitlements/${auth.uid}`, idToken);
 
     const subState = resolveEntitlementState(user, entitlement);
 
-    // Read payments — try user-scoped path first, then flat payments node
+    // Read payments — try user-scoped path first (`userPayments/{uid}`)
     const payments = [];
-    const userPaymentsSnapshot = await safeAdminGet(`userPayments/${auth.uid}`);
-    if (userPaymentsSnapshot) {
-      userPaymentsSnapshot.forEach((child) => {
-        const data = child.val() || {};
+    const userPaymentsData = await rtdbGet(`userPayments/${auth.uid}`, idToken);
+    if (userPaymentsData && typeof userPaymentsData === 'object') {
+      for (const [key, data] of Object.entries(userPaymentsData)) {
+        if (!data) continue;
         payments.push({
-          paymentId: child.key,
+          paymentId: key,
           tier: data.tier || null,
           amount: data.amount ?? null,
           status: data.status || 'pending',
           providerTxId: data.providerTxId || null,
           createdAt: data.createdAt || null,
           processedAt: data.processedAt || null
-        });
-      });
-    }
-
-    if (payments.length === 0) {
-      const paymentsSnapshot = await safeAdminGet('payments');
-      if (paymentsSnapshot) {
-        paymentsSnapshot.forEach((child) => {
-          const data = child.val() || {};
-          if (String(data.userId || '') === auth.uid) {
-            payments.push({
-              paymentId: child.key,
-              tier: data.tier || null,
-              amount: data.amount ?? null,
-              status: data.status || 'pending',
-              providerTxId: data.providerTxId || null,
-              createdAt: data.createdAt || null,
-              processedAt: data.processedAt || null
-            });
-          }
         });
       }
     }
