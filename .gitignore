@@ -10,6 +10,6 @@ coverage/
 .vercel
 .env*.local
 artifacts/*.zip
-artifacts/*.jar
-artifacts/*.exe
+# artifacts/*.jar
+# artifacts/*.exe
 !artifacts/release-metadata.env
