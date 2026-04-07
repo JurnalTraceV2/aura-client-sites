@@ -3,9 +3,9 @@ import jwt from 'jsonwebtoken';
 import { get, ref, remove, set } from 'firebase/database';
 import { db } from './firebase.js';
 
-const ACCESS_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS || 10 * 60);
-const REFRESH_TTL_SECONDS = Number(process.env.REFRESH_TOKEN_TTL_SECONDS || 30 * 24 * 60 * 60);
-const LAUNCH_TTL_SECONDS = Number(process.env.LAUNCH_TOKEN_TTL_SECONDS || 60);
+const ACCESS_TTL_SECONDS = Number(process.env.ACCESS_TOKEN_TTL_SECONDS || 7 * 24 * 60 * 60); // 7 дней
+const REFRESH_TTL_SECONDS = Number(process.env.REFRESH_TOKEN_TTL_SECONDS || 90 * 24 * 60 * 60); // 90 дней
+const LAUNCH_TTL_SECONDS = Number(process.env.LAUNCH_TOKEN_TTL_SECONDS || 5 * 60); // 5 минут
 
 function nowSeconds() {
   return Math.floor(Date.now() / 1000);
