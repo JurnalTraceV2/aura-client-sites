@@ -4,6 +4,17 @@ import { verifyRequestAuth } from '../_lib/auth.js';
 import { ensureUserRecord, getEntitlement, resolveEntitlementState } from '../_lib/license.js';
 import { methodNotAllowed, serverError, unauthorized } from '../_lib/http.js';
 
+// Safe Firebase read — returns null on any error (permission denied, network, etc.)
+async function safeGet(path) {
+  try {
+    const snapshot = await get(ref(db, path));
+    return snapshot.exists() ? snapshot : null;
+  } catch (err) {
+    console.warn(`account/me: safeGet("${path}") failed:`, err?.message || err);
+    return null;
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
     return methodNotAllowed(res);
@@ -15,58 +26,63 @@ export default async function handler(req, res) {
       return unauthorized(res, auth.message || 'Unauthorized.');
     }
 
-    await ensureUserRecord(auth.uid, auth.email || undefined, auth.username || '');
+    // Ensure user record exists — non-fatal if it fails
+    try {
+      await ensureUserRecord(auth.uid, auth.email || undefined, auth.username || '');
+    } catch (ensureErr) {
+      console.warn('account/me: ensureUserRecord failed (non-fatal):', ensureErr?.message || ensureErr);
+    }
 
-    const userSnapshot = await get(ref(db, `users/${auth.uid}`));
-    const user = userSnapshot.exists() ? (userSnapshot.val() || {}) : {};
-    const entitlement = await getEntitlement(auth.uid);
+    // Read the user profile
+    const userSnapshot = await safeGet(`users/${auth.uid}`);
+    const user = userSnapshot ? (userSnapshot.val() || {}) : {};
+
+    // Read entitlement (may return null if node is missing or access denied)
+    let entitlement = null;
+    try {
+      entitlement = await getEntitlement(auth.uid);
+    } catch (entErr) {
+      console.warn('account/me: getEntitlement failed (non-fatal):', entErr?.message || entErr);
+    }
+
     const subState = resolveEntitlementState(user, entitlement);
 
-    // Try to read payments for this user. The server uses the client SDK so
-    // Firebase security rules apply. We gracefully fall back to an empty list
-    // if the read is rejected (permission denied) or the node doesn't exist.
+    // Read payments — try user-scoped path first, then flat payments node
     const payments = [];
-    try {
-      // First try user-scoped path (populated by the payments webhook handler)
-      const userPaymentsSnapshot = await get(ref(db, `userPayments/${auth.uid}`));
-      if (userPaymentsSnapshot.exists()) {
-        userPaymentsSnapshot.forEach((child) => {
+    const userPaymentsSnapshot = await safeGet(`userPayments/${auth.uid}`);
+    if (userPaymentsSnapshot) {
+      userPaymentsSnapshot.forEach((child) => {
+        const data = child.val() || {};
+        payments.push({
+          paymentId: child.key,
+          tier: data.tier || null,
+          amount: data.amount ?? null,
+          status: data.status || 'pending',
+          providerTxId: data.providerTxId || null,
+          createdAt: data.createdAt || null,
+          processedAt: data.processedAt || null
+        });
+      });
+    }
+
+    if (payments.length === 0) {
+      const paymentsSnapshot = await safeGet('payments');
+      if (paymentsSnapshot) {
+        paymentsSnapshot.forEach((child) => {
           const data = child.val() || {};
-          payments.push({
-            paymentId: child.key,
-            tier: data.tier || null,
-            amount: data.amount ?? null,
-            status: data.status || 'pending',
-            providerTxId: data.providerTxId || null,
-            createdAt: data.createdAt || null,
-            processedAt: data.processedAt || null
-          });
+          if (String(data.userId || '') === auth.uid) {
+            payments.push({
+              paymentId: child.key,
+              tier: data.tier || null,
+              amount: data.amount ?? null,
+              status: data.status || 'pending',
+              providerTxId: data.providerTxId || null,
+              createdAt: data.createdAt || null,
+              processedAt: data.processedAt || null
+            });
+          }
         });
       }
-
-      // If nothing found via user-scoped path, try the flat payments node
-      if (payments.length === 0) {
-        const paymentsSnapshot = await get(ref(db, 'payments'));
-        if (paymentsSnapshot.exists()) {
-          paymentsSnapshot.forEach((child) => {
-            const data = child.val() || {};
-            if (String(data.userId || '') === auth.uid) {
-              payments.push({
-                paymentId: child.key,
-                tier: data.tier || null,
-                amount: data.amount ?? null,
-                status: data.status || 'pending',
-                providerTxId: data.providerTxId || null,
-                createdAt: data.createdAt || null,
-                processedAt: data.processedAt || null
-              });
-            }
-          });
-        }
-      }
-    } catch (paymentsErr) {
-      // Permission denied or network error — return an empty list rather than 500
-      console.warn('account/me: failed to read payments:', paymentsErr?.message || paymentsErr);
     }
 
     payments.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0));
