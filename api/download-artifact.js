@@ -1,10 +1,10 @@
 import fs from 'fs';
 import { get, ref, set } from 'firebase/database';
-import { db } from '../_lib/firebase.js';
-import { readArtifactMeta } from '../_lib/artifacts.js';
-import { verifyDownloadToken } from '../_lib/download-links.js';
+import { db } from './_lib/firebase.js';
+import { readArtifactMeta } from './_lib/artifacts.js';
+import { verifyDownloadToken } from './_lib/download-links.js';
 import { createHash } from 'crypto';
-import { getEntitlement, resolveEntitlementState, writeAuditLog } from '../_lib/license.js';
+import { getEntitlement, resolveEntitlementState, writeAuditLog } from './_lib/license.js';
 
 function readQueryToken(req) {
   const token = req?.query?.token;

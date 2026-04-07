@@ -1,5 +1,5 @@
-import launcherLogin from './launcher/login.js';
-import refreshHandler from './auth/refresh.js';
+import launcherLogin from './_launcher/login.js';
+import refreshHandler from './_auth/refresh.js';
 
 function getPathname(req) {
   try {

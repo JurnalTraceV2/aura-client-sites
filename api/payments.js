@@ -1,6 +1,6 @@
-import createHandler from './payments/create.js';
-import checkHandler from './payments/check.js';
-import webhookHandler from './payments/yookassa-webhook.js';
+import createHandler from './_payments/create.js';
+import checkHandler from './_payments/check.js';
+import webhookHandler from './_payments/yookassa-webhook.js';
 
 function getPathname(req) {
   try {

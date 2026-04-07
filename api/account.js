@@ -1,6 +1,6 @@
-import meHandler from './account/me.js';
-import hwidResetHandler from './account/hwid-reset.js';
-import launcherUrlHandler from './account/download/launcher-url.js';
+import meHandler from './_account/me.js';
+import hwidResetHandler from './_account/hwid-reset.js';
+import launcherUrlHandler from './_account/_download/launcher-url.js';
 
 function getPathname(req) {
   try {

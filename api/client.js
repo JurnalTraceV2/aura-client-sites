@@ -1,4 +1,4 @@
-import verifyModsHandler from './client/mods/verify.js';
+import verifyModsHandler from './_client/mods/verify.js';
 
 function getPathname(req) {
   try {

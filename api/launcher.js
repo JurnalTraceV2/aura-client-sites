@@ -1,10 +1,10 @@
-import loginHandler from './launcher/login.js';
-import manifestHandler from './launcher/manifest.js';
-import heartbeatHandler from './launcher/heartbeat.js';
-import verifySessionHandler from './launcher/verify-session.js';
-import launchTokenHandler from './launcher/launch-token.js';
-import artifactHandler from './launcher/artifact.js';
-import securityEventHandler from './launcher/security-event.js';
+import loginHandler from './_launcher/login.js';
+import manifestHandler from './_launcher/manifest.js';
+import heartbeatHandler from './_launcher/heartbeat.js';
+import verifySessionHandler from './_launcher/verify-session.js';
+import launchTokenHandler from './_launcher/launch-token.js';
+import artifactHandler from './_launcher/artifact.js';
+import securityEventHandler from './_launcher/security-event.js';
 
 function getPathname(req) {
   try {
