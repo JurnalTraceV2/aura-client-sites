@@ -15,6 +15,7 @@
 
 import { cert, getApp, getApps, initializeApp as initAdminApp } from 'firebase-admin/app';
 import { getDatabase as getAdminDatabase } from 'firebase-admin/database';
+import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 
 function initAdmin() {
   if (getApps().length > 0) {
@@ -40,4 +41,8 @@ function initAdmin() {
 }
 
 const adminApp = initAdmin();
+const firestoreDatabaseId =
+  process.env.FIRESTORE_DATABASE_ID ||
+  'ai-studio-4ed7f4b0-de10-4fc8-bc51-9ad2449fa3bb';
 export const adminDb = getAdminDatabase(adminApp);
+export const adminFirestore = getAdminFirestore(adminApp, firestoreDatabaseId);

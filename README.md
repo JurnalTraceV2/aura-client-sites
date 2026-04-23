@@ -42,6 +42,20 @@ Firebase backend env must also be set in Vercel:
 - `FIREBASE_APP_ID`
 - `FIREBASE_DATABASE_URL`
 - `FIREBASE_WEB_API_KEY`
+- `GOOGLE_APPLICATION_CREDENTIALS_JSON`
+- `SUBSCRIPTION_KEY_PEPPER`
+
+## Admin and Subscription Keys
+
+Admin access is granted in Firestore by setting either:
+
+`adminRoles/{uid}.admin = true`
+
+or:
+
+`users/{uid}.role = "admin"`
+
+Admins see the key generator in the account dashboard. Generated keys are shown once, stored only as hashes under `subscriptionKeys`, and can be redeemed one time from the user dashboard. Finite keys extend the current expiration date; `lifetime` and `beta` keys have no expiration.
 
 ## Artifact Flow
 

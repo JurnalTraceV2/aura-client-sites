@@ -224,3 +224,51 @@ export async function requestManualHwidReset() {
     remainingResetCredits: Number(payload.remainingResetCredits || 0)
   };
 }
+
+export async function redeemSubscriptionKey(key: string) {
+  const response = await authorizedFetch('/api/account/redeem-key', {
+    method: 'POST',
+    body: JSON.stringify({ key })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.ok) {
+    throw new Error(getApiErrorMessage(payload, response));
+  }
+
+  return {
+    plan: String(payload.plan || 'none'),
+    expiresAt: Number(payload.expiresAt || 0) || null,
+    durationDays: Number(payload.durationDays || 0)
+  };
+}
+
+export async function createAdminSubscriptionKey(plan: string, durationDays: number, note = '') {
+  const response = await authorizedFetch('/api/admin/keys/create', {
+    method: 'POST',
+    body: JSON.stringify({ plan, durationDays, note })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.ok) {
+    throw new Error(getApiErrorMessage(payload, response));
+  }
+
+  return {
+    key: String(payload.key || ''),
+    record: payload.record || null
+  };
+}
+
+export async function fetchAdminSubscriptionKeys() {
+  const response = await authorizedFetch('/api/admin/keys/list', {
+    method: 'GET'
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.ok) {
+    throw new Error(getApiErrorMessage(payload, response));
+  }
+
+  return Array.isArray(payload.keys) ? payload.keys : [];
+}

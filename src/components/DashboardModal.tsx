@@ -1,8 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, LogOut, Key, Shield, Clock, AlertCircle, RefreshCw, Download, Loader2 } from 'lucide-react';
+import { X, LogOut, Key, Shield, Clock, AlertCircle, RefreshCw, Download, Loader2, Copy, Plus } from 'lucide-react';
 import { signOut } from 'firebase/auth';
-import { auth, fetchAccountProfile, requestLauncherDownloadLink, requestManualHwidReset } from '../firebase';
+import {
+  auth,
+  createAdminSubscriptionKey,
+  fetchAccountProfile,
+  fetchAdminSubscriptionKeys,
+  redeemSubscriptionKey,
+  requestLauncherDownloadLink,
+  requestManualHwidReset
+} from '../firebase';
 
 interface DashboardModalProps {
   isOpen: boolean;
@@ -24,6 +32,7 @@ interface AccountProfile {
   uid: string;
   username: string | null;
   email: string | null;
+  role: string;
   uidShort: string | null;
   subscription: string;
   subscriptionExpiresAt: number | null;
@@ -44,6 +53,7 @@ function normalizeProfile(payload: any): AccountProfile {
     uid: String(source.uid || auth.currentUser?.uid || ''),
     username: source.username ?? null,
     email: source.email ?? auth.currentUser?.email ?? null,
+    role: String(source.role || 'user').toLowerCase(),
     uidShort: source.uidShort ?? null,
     subscription: String(source.subscription || 'none'),
     subscriptionExpiresAt:
@@ -89,7 +99,7 @@ function prettySubscription(sub: string) {
     case 'beta':
       return 'Beta';
     default:
-      return 'Нет активной подписки';
+      return sub && sub !== 'none' ? sub : 'Нет активной подписки';
   }
 }
 
@@ -110,6 +120,14 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [runtimeNotice, setRuntimeNotice] = useState<string | null>(paymentNotice || null);
+  const [redeemKeyValue, setRedeemKeyValue] = useState('');
+  const [redeemingKey, setRedeemingKey] = useState(false);
+  const [adminPlan, setAdminPlan] = useState('1_month');
+  const [adminDurationDays, setAdminDurationDays] = useState(30);
+  const [adminNote, setAdminNote] = useState('');
+  const [adminBusy, setAdminBusy] = useState(false);
+  const [generatedKey, setGeneratedKey] = useState('');
+  const [adminKeys, setAdminKeys] = useState<any[]>([]);
   const [launcherInfo, setLauncherInfo] = useState<{
     version: string;
     sha256: string;
@@ -177,6 +195,13 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
       setProfile(normalized);
       setLauncherInfo(null);
 
+      if (normalized.role === 'admin') {
+        const keys = await fetchAdminSubscriptionKeys().catch(() => []);
+        setAdminKeys(keys);
+      } else {
+        setAdminKeys([]);
+      }
+
       const recentPaymentId = localStorage.getItem('aura_last_payment_id');
       if (recentPaymentId) {
         const payment = normalized.payments.find((item) => item.paymentId === recentPaymentId);
@@ -242,6 +267,46 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
       setError(err?.message || 'Failed to start launcher download.');
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleRedeemKey = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const key = redeemKeyValue.trim();
+    if (!key) return;
+
+    setRedeemingKey(true);
+    setError(null);
+    try {
+      const result = await redeemSubscriptionKey(key);
+      setRedeemKeyValue('');
+      setRuntimeNotice(
+        result.expiresAt
+          ? `Ключ активирован. Подписка действует до: ${formatDate(result.expiresAt)}.`
+          : 'Ключ активирован. Подписка без срока действия.'
+      );
+      await loadProfile();
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось активировать ключ.');
+    } finally {
+      setRedeemingKey(false);
+    }
+  };
+
+  const handleCreateAdminKey = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setAdminBusy(true);
+    setError(null);
+    try {
+      const result = await createAdminSubscriptionKey(adminPlan, adminDurationDays, adminNote);
+      setGeneratedKey(result.key);
+      setAdminNote('');
+      const keys = await fetchAdminSubscriptionKeys();
+      setAdminKeys(keys);
+    } catch (err: any) {
+      setError(err?.message || 'Не удалось сгенерировать ключ.');
+    } finally {
+      setAdminBusy(false);
     }
   };
 
@@ -351,6 +416,29 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
 
                   <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6">
                     <p className="text-zinc-500 text-sm mb-3 flex items-center gap-2">
+                      <Key className="w-4 h-4" />
+                      Активация ключа
+                    </p>
+                    <form onSubmit={handleRedeemKey} className="flex flex-col sm:flex-row gap-3">
+                      <input
+                        value={redeemKeyValue}
+                        onChange={(event) => setRedeemKeyValue(event.target.value)}
+                        placeholder="AURA-XXXXX-XXXXX-XXXXX-XXXXX"
+                        className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/30"
+                      />
+                      <button
+                        type="submit"
+                        disabled={redeemingKey || !redeemKeyValue.trim()}
+                        className="px-5 py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {redeemingKey ? <Loader2 className="w-4 h-4 animate-spin" /> : <Key className="w-4 h-4" />}
+                        Активировать
+                      </button>
+                    </form>
+                  </div>
+
+                  <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6">
+                    <p className="text-zinc-500 text-sm mb-3 flex items-center gap-2">
                       <Download className="w-4 h-4" />
                       Скачать лаунчер
                     </p>
@@ -394,6 +482,96 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                       )}
                     </div>
                   </div>
+
+                  {profile.role === 'admin' && (
+                    <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6">
+                      <div className="flex items-start justify-between gap-4 mb-4">
+                        <div>
+                          <p className="text-zinc-500 text-sm mb-1 flex items-center gap-2">
+                            <Shield className="w-4 h-4" />
+                            Админ-панель
+                          </p>
+                          <h3 className="text-xl font-bold text-white">Ключи подписки</h3>
+                        </div>
+                        <span className="px-3 py-1 rounded-full text-xs font-bold uppercase border border-green-500/30 bg-green-500/10 text-green-300">
+                          admin
+                        </span>
+                      </div>
+
+                      <form onSubmit={handleCreateAdminKey} className="grid grid-cols-1 md:grid-cols-[1fr_120px] gap-3">
+                        <select
+                          value={adminPlan}
+                          onChange={(event) => setAdminPlan(event.target.value)}
+                          className="bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30"
+                        >
+                          <option value="1_month">Ограниченная подписка</option>
+                          <option value="lifetime">Навсегда</option>
+                          <option value="beta">Beta</option>
+                        </select>
+                        <input
+                          type="number"
+                          min={1}
+                          max={3650}
+                          value={adminDurationDays}
+                          disabled={adminPlan === 'lifetime' || adminPlan === 'beta'}
+                          onChange={(event) => setAdminDurationDays(Number(event.target.value || 1))}
+                          className="bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white disabled:opacity-50 focus:outline-none focus:border-white/30"
+                          aria-label="Duration in days"
+                        />
+                        <input
+                          value={adminNote}
+                          onChange={(event) => setAdminNote(event.target.value)}
+                          placeholder="Комментарий для себя"
+                          className="md:col-span-2 bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-white/30"
+                        />
+                        <button
+                          type="submit"
+                          disabled={adminBusy}
+                          className="md:col-span-2 px-5 py-3 rounded-xl bg-white text-black font-semibold hover:bg-zinc-200 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          {adminBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                          Сгенерировать ключ
+                        </button>
+                      </form>
+
+                      {generatedKey && (
+                        <div className="mt-4 p-3 rounded-xl border border-green-500/20 bg-green-500/10">
+                          <p className="text-xs text-green-300 mb-2">Новый ключ показывается только сейчас:</p>
+                          <div className="flex items-center gap-2">
+                            <code className="flex-1 bg-black/50 border border-white/10 rounded-lg px-3 py-2 text-xs text-white break-all">
+                              {generatedKey}
+                            </code>
+                            <button
+                              type="button"
+                              onClick={() => navigator.clipboard?.writeText(generatedKey)}
+                              className="p-2 rounded-lg bg-white/10 text-white hover:bg-white/20 transition"
+                              title="Скопировать"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {adminKeys.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          {adminKeys.slice(0, 5).map((item) => (
+                            <div key={item.id} className="flex items-center justify-between gap-3 bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs">
+                              <div className="text-zinc-300">
+                                <span className="font-medium">{item.plan}</span>
+                                <span className="text-zinc-500 ml-2">
+                                  {item.durationDays ? `${item.durationDays} дн.` : 'без срока'}
+                                </span>
+                              </div>
+                              <span className={item.redeemed ? 'text-yellow-300' : 'text-green-300'}>
+                                {item.redeemed ? 'использован' : 'активен'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="bg-zinc-950 border border-white/5 rounded-2xl p-6">
                     <p className="text-zinc-500 text-sm mb-3 flex items-center gap-2">

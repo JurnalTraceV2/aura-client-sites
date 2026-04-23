@@ -1,0 +1,214 @@
+import crypto from 'crypto';
+import { adminDb, adminFirestore } from './firebase-admin.js';
+import { normalizeTier, revokeAllSessionsForUid, writeAuditLog } from './license.js';
+
+const SUBS_WITHOUT_EXPIRY = new Set(['lifetime', 'beta']);
+const KEY_HASH_PEPPER = String(process.env.SUBSCRIPTION_KEY_PEPPER || process.env.ADMIN_API_SECRET || '').trim();
+const KEY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function nowMs() {
+  return Date.now();
+}
+
+function toNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+export function normalizeSubscriptionKey(rawKey) {
+  return String(rawKey || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 64);
+}
+
+export function hashSubscriptionKey(rawKey) {
+  const normalized = normalizeSubscriptionKey(rawKey);
+  if (!normalized) {
+    return '';
+  }
+  return crypto.createHash('sha256').update(`${KEY_HASH_PEPPER}:${normalized}`, 'utf8').digest('hex');
+}
+
+export function generateSubscriptionKey() {
+  const bytes = crypto.randomBytes(20);
+  let raw = '';
+  for (const byte of bytes) {
+    raw += KEY_ALPHABET[byte % KEY_ALPHABET.length];
+  }
+  return `AURA-${raw.slice(0, 5)}-${raw.slice(5, 10)}-${raw.slice(10, 15)}-${raw.slice(15, 20)}`;
+}
+
+export function sanitizeKeyPublicRecord(record = {}, keyHash = '') {
+  return {
+    id: keyHash,
+    plan: String(record.plan || '1_month'),
+    durationDays: toNumber(record.durationDays, 0),
+    durationMs: toNumber(record.durationMs, 0),
+    note: String(record.note || '').slice(0, 120),
+    createdAt: toNumber(record.createdAt, 0) || null,
+    createdBy: record.createdBy || null,
+    redeemed: record.redeemed === true,
+    redeemedAt: toNumber(record.redeemedAt, 0) || null,
+    redeemedBy: record.redeemedBy || null
+  };
+}
+
+export async function getUserRole(uid) {
+  const adminRoleDoc = await adminFirestore.collection('adminRoles').doc(uid).get();
+  const adminRole = adminRoleDoc.exists ? adminRoleDoc.data() || {} : {};
+  if (adminRole.admin === true || String(adminRole.role || '').toLowerCase() === 'admin') {
+    return 'admin';
+  }
+
+  const userRoleDoc = await adminFirestore.collection('users').doc(uid).get();
+  const userRole = userRoleDoc.exists ? String(userRoleDoc.data()?.role || '').toLowerCase() : '';
+  if (userRole === 'admin') {
+    return 'admin';
+  }
+
+  return 'user';
+}
+
+export async function requireAdminUser(auth) {
+  if (!auth?.ok || !auth.uid) {
+    return { ok: false, status: 401, message: 'Unauthorized.' };
+  }
+
+  const role = await getUserRole(auth.uid);
+  if (role !== 'admin') {
+    return { ok: false, status: 403, message: 'Admin role required.' };
+  }
+
+  return { ok: true, role };
+}
+
+export async function createSubscriptionKey({ createdBy, planRaw, durationDaysRaw, noteRaw = '' }) {
+  const plan = normalizeTier(planRaw || '1_month');
+  if (!plan || plan === 'none' || plan === 'hwid_reset') {
+    return { ok: false, message: 'Unsupported subscription plan.' };
+  }
+
+  const durationDays = SUBS_WITHOUT_EXPIRY.has(plan) ? 0 : Math.floor(toNumber(durationDaysRaw, 0));
+  if (!SUBS_WITHOUT_EXPIRY.has(plan) && (durationDays < 1 || durationDays > 3650)) {
+    return { ok: false, message: 'Duration must be from 1 to 3650 days.' };
+  }
+
+  const key = generateSubscriptionKey();
+  const keyHash = hashSubscriptionKey(key);
+  if (!keyHash) {
+    return { ok: false, message: 'Failed to generate key.' };
+  }
+
+  const now = nowMs();
+  const record = {
+    plan,
+    durationDays,
+    durationMs: durationDays > 0 ? durationDays * 24 * 60 * 60 * 1000 : 0,
+    note: String(noteRaw || '').trim().slice(0, 120),
+    createdBy,
+    createdAt: now,
+    redeemed: false,
+    redeemedBy: null,
+    redeemedAt: null
+  };
+
+  await adminFirestore.collection('subscriptionKeys').doc(keyHash).set(record);
+  await writeAuditLog('subscription_key_created', {
+    uid: createdBy,
+    keyHash,
+    plan,
+    durationDays
+  });
+
+  return { ok: true, key, keyHash, record: sanitizeKeyPublicRecord(record, keyHash) };
+}
+
+export async function listSubscriptionKeys(limit = 25) {
+  const snapshot = await adminFirestore
+    .collection('subscriptionKeys')
+    .orderBy('createdAt', 'desc')
+    .limit(Math.max(1, Math.min(Number(limit) || 25, 100)))
+    .get();
+
+  return snapshot.docs.map((doc) => sanitizeKeyPublicRecord(doc.data() || {}, doc.id));
+}
+
+export async function redeemSubscriptionKey({ rawKey, uid }) {
+  const normalizedKey = normalizeSubscriptionKey(rawKey);
+  const keyHash = hashSubscriptionKey(normalizedKey);
+  if (!normalizedKey || !keyHash) {
+    return { ok: false, status: 400, message: 'Invalid key format.' };
+  }
+
+  const keyRef = adminFirestore.collection('subscriptionKeys').doc(keyHash);
+  const now = nowMs();
+  let selectedRecord = null;
+
+  const redeemed = await adminFirestore.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(keyRef);
+    if (!snapshot.exists) {
+      return false;
+    }
+
+    const current = snapshot.data() || {};
+    if (current.redeemed === true) {
+      return false;
+    }
+
+    selectedRecord = current;
+    transaction.update(keyRef, {
+      redeemed: true,
+      redeemedBy: uid,
+      redeemedAt: now
+    });
+    return true;
+  });
+
+  if (!redeemed || !selectedRecord) {
+    return { ok: false, status: 400, message: 'Key is invalid or already redeemed.' };
+  }
+
+  const plan = normalizeTier(selectedRecord.plan || '1_month');
+  const durationMs = toNumber(selectedRecord.durationMs, 0);
+  const userRef = adminDb.ref(`users/${uid}`);
+  const entitlementRef = adminDb.ref(`entitlements/${uid}`);
+  const userSnapshot = await userRef.get();
+  const user = userSnapshot.val() || {};
+
+  const currentExpiresAt = toNumber(user.subscriptionExpiresAt, 0);
+  const expiresAt = SUBS_WITHOUT_EXPIRY.has(plan) ? null : Math.max(now, currentExpiresAt) + durationMs;
+
+  await userRef.update({
+    subscription: plan,
+    subscriptionExpiresAt: expiresAt,
+    lastKeyRedeemedAt: now,
+    lastKeyHash: keyHash
+  });
+
+  await entitlementRef.set({
+    plan,
+    state: 'active',
+    expiresAt,
+    source: 'subscription_key',
+    keyHash,
+    updatedAt: now
+  });
+
+  await revokeAllSessionsForUid(uid);
+  await writeAuditLog('subscription_key_redeemed', {
+    uid,
+    keyHash,
+    plan,
+    durationMs,
+    expiresAt
+  });
+
+  return {
+    ok: true,
+    plan,
+    expiresAt,
+    durationDays: toNumber(selectedRecord.durationDays, 0)
+  };
+}
