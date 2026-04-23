@@ -352,9 +352,9 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-3xl bg-zinc-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl"
+            className="relative w-full max-w-3xl max-h-[calc(100vh-2rem)] bg-zinc-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl"
           >
-            <div className="p-8">
+            <div className="max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain p-6 sm:p-8">
               <button
                 onClick={onClose}
                 className="absolute top-6 right-6 text-zinc-400 hover:text-white transition-colors"
