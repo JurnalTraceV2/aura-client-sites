@@ -126,6 +126,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
   const [adminDurationDays, setAdminDurationDays] = useState(30);
   const [adminNote, setAdminNote] = useState('');
   const [adminBusy, setAdminBusy] = useState(false);
+  const [adminError, setAdminError] = useState<string | null>(null);
   const [generatedKey, setGeneratedKey] = useState('');
   const [adminKeys, setAdminKeys] = useState<any[]>([]);
   const [launcherInfo, setLauncherInfo] = useState<{
@@ -296,6 +297,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
   const handleCreateAdminKey = async (event: React.FormEvent) => {
     event.preventDefault();
     setAdminBusy(true);
+    setAdminError(null);
     setError(null);
     try {
       const result = await createAdminSubscriptionKey(adminPlan, adminDurationDays, adminNote);
@@ -304,7 +306,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
       const keys = await fetchAdminSubscriptionKeys();
       setAdminKeys(keys);
     } catch (err: any) {
-      setError(err?.message || 'Не удалось сгенерировать ключ.');
+      setAdminError(err?.message || 'Не удалось сгенерировать ключ.');
     } finally {
       setAdminBusy(false);
     }
@@ -533,6 +535,12 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
                           Сгенерировать ключ
                         </button>
                       </form>
+
+                      {adminError && (
+                        <div className="mt-4 p-3 rounded-xl border border-red-500/25 bg-red-500/10 text-red-200 text-sm">
+                          {adminError}
+                        </div>
+                      )}
 
                       {generatedKey && (
                         <div className="mt-4 p-3 rounded-xl border border-green-500/20 bg-green-500/10">

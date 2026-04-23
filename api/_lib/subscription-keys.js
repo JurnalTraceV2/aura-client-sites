@@ -56,16 +56,29 @@ export function sanitizeKeyPublicRecord(record = {}, keyHash = '') {
 }
 
 export async function getUserRole(uid) {
-  const adminRoleDoc = await adminFirestore.collection('adminRoles').doc(uid).get();
-  const adminRole = adminRoleDoc.exists ? adminRoleDoc.data() || {} : {};
-  if (adminRole.admin === true || String(adminRole.role || '').toLowerCase() === 'admin') {
-    return 'admin';
+  try {
+    const adminRoleDoc = await adminFirestore.collection('adminRoles').doc(uid).get();
+    const adminRole = adminRoleDoc.exists ? adminRoleDoc.data() || {} : {};
+    if (adminRole.admin === true || String(adminRole.role || '').toLowerCase() === 'admin') {
+      return 'admin';
+    }
+
+    const userRoleDoc = await adminFirestore.collection('users').doc(uid).get();
+    const userRole = userRoleDoc.exists ? String(userRoleDoc.data()?.role || '').toLowerCase() : '';
+    if (userRole === 'admin') {
+      return 'admin';
+    }
+  } catch (error) {
+    console.warn('getUserRole: Firestore role lookup failed:', error?.message || error);
   }
 
-  const userRoleDoc = await adminFirestore.collection('users').doc(uid).get();
-  const userRole = userRoleDoc.exists ? String(userRoleDoc.data()?.role || '').toLowerCase() : '';
-  if (userRole === 'admin') {
-    return 'admin';
+  try {
+    const rtdbRoleSnapshot = await adminDb.ref(`users/${uid}/role`).get();
+    if (String(rtdbRoleSnapshot.val() || '').toLowerCase() === 'admin') {
+      return 'admin';
+    }
+  } catch (error) {
+    console.warn('getUserRole: RTDB role lookup failed:', error?.message || error);
   }
 
   return 'user';
