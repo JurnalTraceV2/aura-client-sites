@@ -172,7 +172,9 @@ export default async function handler(req, res) {
     const entitlement = await rtdbGet(`entitlements/${auth.uid}`, idToken);
 
     const subState = resolveEntitlementState(user, entitlement);
-    const role = await getUserRole(auth.uid).catch(() => 'user');
+    const role = await getUserRole(auth.uid).catch(() =>
+      String(user.role || '').toLowerCase() === 'admin' ? 'admin' : 'user'
+    );
 
     // Read payments — try user-scoped path first (`userPayments/{uid}`)
     const payments = [];
