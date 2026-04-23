@@ -195,13 +195,7 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
       const normalized = normalizeProfile(payload);
       setProfile(normalized);
       setLauncherInfo(null);
-
-      if (normalized.role === 'admin') {
-        const keys = await fetchAdminSubscriptionKeys().catch(() => []);
-        setAdminKeys(keys);
-      } else {
-        setAdminKeys([]);
-      }
+      setAdminKeys([]);
 
       const recentPaymentId = localStorage.getItem('aura_last_payment_id');
       if (recentPaymentId) {

@@ -11,7 +11,6 @@
 import { verifyRequestAuth } from '../_lib/auth.js';
 import { resolveEntitlementState } from '../_lib/license.js';
 import { methodNotAllowed, serverError, unauthorized, extractBearerToken } from '../_lib/http.js';
-import { getUserRole } from '../_lib/subscription-keys.js';
 
 const DATABASE_URL = String(
   process.env.FIREBASE_DATABASE_URL ||
@@ -172,9 +171,7 @@ export default async function handler(req, res) {
     const entitlement = await rtdbGet(`entitlements/${auth.uid}`, idToken);
 
     const subState = resolveEntitlementState(user, entitlement);
-    const role = await getUserRole(auth.uid).catch(() =>
-      String(user.role || '').toLowerCase() === 'admin' ? 'admin' : 'user'
-    );
+    const role = String(user.role || '').toLowerCase() === 'admin' ? 'admin' : 'user';
 
     // Read payments — try user-scoped path first (`userPayments/{uid}`)
     const payments = [];
