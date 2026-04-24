@@ -61,7 +61,8 @@ function initAdmin() {
 }
 
 const adminApp = initAdmin();
-export const adminAuth = getAdminAuth(adminApp);
+export const adminProjectId = resolveProjectId();
+export const adminAuth = adminProjectId ? getAdminAuth(adminApp) : null;
 export const adminDb = getAdminDatabase(adminApp);
 
 function resolveFirestoreDatabaseId() {
