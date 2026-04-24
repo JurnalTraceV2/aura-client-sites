@@ -14,6 +14,7 @@
  */
 
 import { cert, getApp, getApps, initializeApp as initAdminApp } from 'firebase-admin/app';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { getDatabase as getAdminDatabase } from 'firebase-admin/database';
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 
@@ -41,6 +42,7 @@ function initAdmin() {
 }
 
 const adminApp = initAdmin();
+export const adminAuth = getAdminAuth(adminApp);
 export const adminDb = getAdminDatabase(adminApp);
 
 function resolveFirestoreDatabaseId() {

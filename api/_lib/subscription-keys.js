@@ -5,6 +5,8 @@ import { normalizeTier, revokeAllSessionsForUid, writeAuditLog } from './license
 const SUBS_WITHOUT_EXPIRY = new Set(['lifetime', 'beta']);
 const KEY_HASH_PEPPER = String(process.env.SUBSCRIPTION_KEY_PEPPER || process.env.ADMIN_API_SECRET || '').trim();
 const KEY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const ADMIN_LOOKUP_TIMEOUT_MS = Number(process.env.ADMIN_LOOKUP_TIMEOUT_MS || 5000);
+const ADMIN_WRITE_TIMEOUT_MS = Number(process.env.ADMIN_WRITE_TIMEOUT_MS || 8000);
 
 function nowMs() {
   return Date.now();
@@ -13,6 +15,19 @@ function nowMs() {
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+async function withTimeout(promise, timeoutMs, message) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export function normalizeSubscriptionKey(rawKey) {
@@ -57,13 +72,21 @@ export function sanitizeKeyPublicRecord(record = {}, keyHash = '') {
 
 export async function getUserRole(uid) {
   try {
-    const adminRoleDoc = await adminFirestore.collection('adminRoles').doc(uid).get();
+    const adminRoleDoc = await withTimeout(
+      adminFirestore.collection('adminRoles').doc(uid).get(),
+      ADMIN_LOOKUP_TIMEOUT_MS,
+      'Firestore admin role lookup timed out.'
+    );
     const adminRole = adminRoleDoc.exists ? adminRoleDoc.data() || {} : {};
     if (adminRole.admin === true || String(adminRole.role || '').toLowerCase() === 'admin') {
       return 'admin';
     }
 
-    const userRoleDoc = await adminFirestore.collection('users').doc(uid).get();
+    const userRoleDoc = await withTimeout(
+      adminFirestore.collection('users').doc(uid).get(),
+      ADMIN_LOOKUP_TIMEOUT_MS,
+      'Firestore user role lookup timed out.'
+    );
     const userRole = userRoleDoc.exists ? String(userRoleDoc.data()?.role || '').toLowerCase() : '';
     if (userRole === 'admin') {
       return 'admin';
@@ -73,7 +96,11 @@ export async function getUserRole(uid) {
   }
 
   try {
-    const rtdbRoleSnapshot = await adminDb.ref(`users/${uid}/role`).get();
+    const rtdbRoleSnapshot = await withTimeout(
+      adminDb.ref(`users/${uid}/role`).get(),
+      ADMIN_LOOKUP_TIMEOUT_MS,
+      'RTDB role lookup timed out.'
+    );
     if (String(rtdbRoleSnapshot.val() || '').toLowerCase() === 'admin') {
       return 'admin';
     }
@@ -127,7 +154,11 @@ export async function createSubscriptionKey({ createdBy, planRaw, durationDaysRa
     redeemedAt: null
   };
 
-  await adminFirestore.collection('subscriptionKeys').doc(keyHash).set(record);
+  await withTimeout(
+    adminFirestore.collection('subscriptionKeys').doc(keyHash).set(record),
+    ADMIN_WRITE_TIMEOUT_MS,
+    'Subscription key write timed out.'
+  );
   await writeAuditLog('subscription_key_created', {
     uid: createdBy,
     keyHash,
