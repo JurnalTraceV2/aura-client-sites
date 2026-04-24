@@ -81,6 +81,8 @@ function resolveFirestoreDatabaseId() {
 }
 
 const firestoreDatabaseId = resolveFirestoreDatabaseId();
-export const adminFirestore = firestoreDatabaseId
-  ? getAdminFirestore(adminApp, firestoreDatabaseId)
-  : getAdminFirestore(adminApp);
+export const adminFirestore = adminProjectId
+  ? firestoreDatabaseId
+    ? getAdminFirestore(adminApp, firestoreDatabaseId)
+    : getAdminFirestore(adminApp)
+  : null;

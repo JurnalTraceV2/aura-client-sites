@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { get } from 'firebase-admin/database';
 import { adminDb, adminFirestore } from './firebase-admin.js';
 import { normalizeTier, revokeAllSessionsForUid, writeAuditLog } from './license.js';
 
@@ -74,26 +75,50 @@ export function sanitizeKeyPublicRecord(record = {}, keyHash = '') {
   };
 }
 
+function getSubscriptionKeyRef(keyHash) {
+  return adminDb.ref(`subscriptionKeys/${keyHash}`);
+}
+
+async function getSubscriptionKeyRecord(keyHash) {
+  if (adminFirestore) {
+    const snapshot = await withTimeout(
+      adminFirestore.collection('subscriptionKeys').doc(keyHash).get(),
+      ADMIN_LOOKUP_TIMEOUT_MS,
+      'Firestore subscription key lookup timed out.'
+    );
+    return snapshot.exists ? snapshot.data() || null : null;
+  }
+
+  const snapshot = await withTimeout(
+    get(getSubscriptionKeyRef(keyHash)),
+    ADMIN_LOOKUP_TIMEOUT_MS,
+    'RTDB subscription key lookup timed out.'
+  );
+  return snapshot.exists() ? snapshot.val() || null : null;
+}
+
 export async function getUserRole(uid) {
   try {
-    const adminRoleDoc = await withTimeout(
-      adminFirestore.collection('adminRoles').doc(uid).get(),
-      ADMIN_LOOKUP_TIMEOUT_MS,
-      'Firestore admin role lookup timed out.'
-    );
-    const adminRole = adminRoleDoc.exists ? adminRoleDoc.data() || {} : {};
-    if (adminRole.admin === true || String(adminRole.role || '').toLowerCase() === 'admin') {
-      return 'admin';
-    }
+    if (adminFirestore) {
+      const adminRoleDoc = await withTimeout(
+        adminFirestore.collection('adminRoles').doc(uid).get(),
+        ADMIN_LOOKUP_TIMEOUT_MS,
+        'Firestore admin role lookup timed out.'
+      );
+      const adminRole = adminRoleDoc.exists ? adminRoleDoc.data() || {} : {};
+      if (adminRole.admin === true || String(adminRole.role || '').toLowerCase() === 'admin') {
+        return 'admin';
+      }
 
-    const userRoleDoc = await withTimeout(
-      adminFirestore.collection('users').doc(uid).get(),
-      ADMIN_LOOKUP_TIMEOUT_MS,
-      'Firestore user role lookup timed out.'
-    );
-    const userRole = userRoleDoc.exists ? String(userRoleDoc.data()?.role || '').toLowerCase() : '';
-    if (userRole === 'admin') {
-      return 'admin';
+      const userRoleDoc = await withTimeout(
+        adminFirestore.collection('users').doc(uid).get(),
+        ADMIN_LOOKUP_TIMEOUT_MS,
+        'Firestore user role lookup timed out.'
+      );
+      const userRole = userRoleDoc.exists ? String(userRoleDoc.data()?.role || '').toLowerCase() : '';
+      if (userRole === 'admin') {
+        return 'admin';
+      }
     }
   } catch (error) {
     console.warn('getUserRole: Firestore role lookup failed:', error?.message || error);
@@ -194,11 +219,19 @@ export async function createSubscriptionKey({ createdBy, planRaw, durationDaysRa
     redeemedAt: null
   };
 
-  await withTimeout(
-    adminFirestore.collection('subscriptionKeys').doc(keyHash).set(record),
-    ADMIN_WRITE_TIMEOUT_MS,
-    'Subscription key write timed out.'
-  );
+  if (adminFirestore) {
+    await withTimeout(
+      adminFirestore.collection('subscriptionKeys').doc(keyHash).set(record),
+      ADMIN_WRITE_TIMEOUT_MS,
+      'Subscription key write timed out.'
+    );
+  } else {
+    await withTimeout(
+      getSubscriptionKeyRef(keyHash).set(record),
+      ADMIN_WRITE_TIMEOUT_MS,
+      'Subscription key write timed out.'
+    );
+  }
   await writeAuditLog('subscription_key_created', {
     uid: createdBy,
     keyHash,
@@ -210,13 +243,29 @@ export async function createSubscriptionKey({ createdBy, planRaw, durationDaysRa
 }
 
 export async function listSubscriptionKeys(limit = 25) {
-  const snapshot = await adminFirestore
-    .collection('subscriptionKeys')
-    .orderBy('createdAt', 'desc')
-    .limit(Math.max(1, Math.min(Number(limit) || 25, 100)))
-    .get();
+  const normalizedLimit = Math.max(1, Math.min(Number(limit) || 25, 100));
 
-  return snapshot.docs.map((doc) => sanitizeKeyPublicRecord(doc.data() || {}, doc.id));
+  if (adminFirestore) {
+    const snapshot = await adminFirestore
+      .collection('subscriptionKeys')
+      .orderBy('createdAt', 'desc')
+      .limit(normalizedLimit)
+      .get();
+
+    return snapshot.docs.map((doc) => sanitizeKeyPublicRecord(doc.data() || {}, doc.id));
+  }
+
+  const snapshot = await withTimeout(
+    adminDb.ref('subscriptionKeys').get(),
+    ADMIN_LOOKUP_TIMEOUT_MS,
+    'RTDB subscription key list timed out.'
+  );
+  const data = snapshot.exists() ? snapshot.val() || {} : {};
+
+  return Object.entries(data)
+    .map(([id, record]) => sanitizeKeyPublicRecord(record || {}, id))
+    .sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
+    .slice(0, normalizedLimit);
 }
 
 export async function redeemSubscriptionKey({ rawKey, uid }) {
@@ -226,29 +275,47 @@ export async function redeemSubscriptionKey({ rawKey, uid }) {
     return { ok: false, status: 400, message: 'Invalid key format.' };
   }
 
-  const keyRef = adminFirestore.collection('subscriptionKeys').doc(keyHash);
   const now = nowMs();
   let selectedRecord = null;
+  let redeemed = false;
 
-  const redeemed = await adminFirestore.runTransaction(async (transaction) => {
-    const snapshot = await transaction.get(keyRef);
-    if (!snapshot.exists) {
-      return false;
-    }
+  if (adminFirestore) {
+    const keyRef = adminFirestore.collection('subscriptionKeys').doc(keyHash);
+    redeemed = await adminFirestore.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(keyRef);
+      if (!snapshot.exists) {
+        return false;
+      }
 
-    const current = snapshot.data() || {};
-    if (current.redeemed === true) {
-      return false;
-    }
+      const current = snapshot.data() || {};
+      if (current.redeemed === true) {
+        return false;
+      }
 
-    selectedRecord = current;
-    transaction.update(keyRef, {
-      redeemed: true,
-      redeemedBy: uid,
-      redeemedAt: now
+      selectedRecord = current;
+      transaction.update(keyRef, {
+        redeemed: true,
+        redeemedBy: uid,
+        redeemedAt: now
+      });
+      return true;
     });
-    return true;
-  });
+  } else {
+    const record = await getSubscriptionKeyRecord(keyHash);
+    if (record && record.redeemed !== true) {
+      selectedRecord = record;
+      await withTimeout(
+        getSubscriptionKeyRef(keyHash).update({
+          redeemed: true,
+          redeemedBy: uid,
+          redeemedAt: now
+        }),
+        ADMIN_WRITE_TIMEOUT_MS,
+        'Subscription key redeem write timed out.'
+      );
+      redeemed = true;
+    }
+  }
 
   if (!redeemed || !selectedRecord) {
     return { ok: false, status: 400, message: 'Key is invalid or already redeemed.' };
