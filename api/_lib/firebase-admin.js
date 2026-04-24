@@ -41,8 +41,24 @@ function initAdmin() {
 }
 
 const adminApp = initAdmin();
-const firestoreDatabaseId =
-  process.env.FIRESTORE_DATABASE_ID ||
-  'ai-studio-4ed7f4b0-de10-4fc8-bc51-9ad2449fa3bb';
 export const adminDb = getAdminDatabase(adminApp);
-export const adminFirestore = getAdminFirestore(adminApp, firestoreDatabaseId);
+
+function resolveFirestoreDatabaseId() {
+  const raw = String(process.env.FIRESTORE_DATABASE_ID || '').trim();
+  if (!raw) {
+    return undefined;
+  }
+
+  // The default Firestore database should be used unless a custom database id
+  // is explicitly configured in the deployment environment.
+  if (raw === '(default)') {
+    return undefined;
+  }
+
+  return raw;
+}
+
+const firestoreDatabaseId = resolveFirestoreDatabaseId();
+export const adminFirestore = firestoreDatabaseId
+  ? getAdminFirestore(adminApp, firestoreDatabaseId)
+  : getAdminFirestore(adminApp);
