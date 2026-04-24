@@ -37,7 +37,9 @@ export async function verifyFirebaseIdToken(idToken) {
       uid: decoded.uid,
       email: decoded.email || null,
       emailVerified: decoded.email_verified === true,
-      username: profile?.username || emailToUsername(decoded.email || '')
+      username: profile?.username || emailToUsername(decoded.email || ''),
+      role: decoded.admin === true || decoded.role === 'admin' ? 'admin' : null,
+      idToken: token
     };
   } catch (adminError) {
     console.warn('verifyFirebaseIdToken: admin verification failed, falling back:', adminError?.message || adminError);
@@ -79,7 +81,9 @@ export async function verifyFirebaseIdToken(idToken) {
     uid: user.localId,
     email: user.email || null,
     emailVerified: user.emailVerified === true,
-    username: profile?.username || emailToUsername(user.email || '')
+    username: profile?.username || emailToUsername(user.email || ''),
+    role: null,
+    idToken: token
   };
 }
 

@@ -7,6 +7,10 @@ const KEY_HASH_PEPPER = String(process.env.SUBSCRIPTION_KEY_PEPPER || process.en
 const KEY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ADMIN_LOOKUP_TIMEOUT_MS = Number(process.env.ADMIN_LOOKUP_TIMEOUT_MS || 5000);
 const ADMIN_WRITE_TIMEOUT_MS = Number(process.env.ADMIN_WRITE_TIMEOUT_MS || 8000);
+const DATABASE_URL = String(
+  process.env.FIREBASE_DATABASE_URL ||
+  'https://gen-lang-client-0640974949-default-rtdb.firebaseio.com'
+).replace(/\/$/, '');
 
 function nowMs() {
   return Date.now();
@@ -111,9 +115,45 @@ export async function getUserRole(uid) {
   return 'user';
 }
 
+async function getUserRoleFromAuthenticatedRtdb(uid, idToken) {
+  const token = String(idToken || '').trim();
+  if (!uid || !token) {
+    return 'user';
+  }
+
+  try {
+    const response = await withTimeout(
+      fetch(`${DATABASE_URL}/users/${uid}/role.json?auth=${encodeURIComponent(token)}`, {
+        method: 'GET'
+      }),
+      ADMIN_LOOKUP_TIMEOUT_MS,
+      'Authenticated RTDB role lookup timed out.'
+    );
+
+    if (!response.ok) {
+      return 'user';
+    }
+
+    const role = await response.json().catch(() => null);
+    return String(role || '').toLowerCase() === 'admin' ? 'admin' : 'user';
+  } catch (error) {
+    console.warn('getUserRoleFromAuthenticatedRtdb failed:', error?.message || error);
+    return 'user';
+  }
+}
+
 export async function requireAdminUser(auth) {
   if (!auth?.ok || !auth.uid) {
     return { ok: false, status: 401, message: 'Unauthorized.' };
+  }
+
+  if (String(auth.role || '').toLowerCase() === 'admin') {
+    return { ok: true, role: 'admin' };
+  }
+
+  const authenticatedRole = await getUserRoleFromAuthenticatedRtdb(auth.uid, auth.idToken);
+  if (authenticatedRole === 'admin') {
+    return { ok: true, role: 'admin' };
   }
 
   const role = await getUserRole(auth.uid);
