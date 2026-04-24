@@ -111,10 +111,24 @@ async function authorizedFetch(url: string, init: RequestInit = {}) {
   headers.set('Authorization', `Bearer ${idToken}`);
   headers.set('Content-Type', 'application/json');
 
-  return fetch(url, {
-    ...init,
-    headers
-  });
+  const controller = new AbortController();
+  const timeoutMs = 15000;
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...init,
+      headers,
+      signal: init.signal || controller.signal
+    });
+  } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)} seconds.`);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 export async function ensureUserDocument(user: User | null, username = '') {

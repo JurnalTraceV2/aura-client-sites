@@ -297,11 +297,19 @@ export function DashboardModal({ isOpen, onClose, onResetHwid, paymentNotice }: 
       const result = await createAdminSubscriptionKey(adminPlan, adminDurationDays, adminNote);
       setGeneratedKey(result.key);
       setAdminNote('');
-      const keys = await fetchAdminSubscriptionKeys();
-      setAdminKeys(keys);
+      setAdminBusy(false);
+
+      try {
+        const keys = await fetchAdminSubscriptionKeys();
+        setAdminKeys(keys);
+      } catch (refreshError: any) {
+        console.warn('Failed to refresh admin key list after creation:', refreshError);
+      }
     } catch (err: any) {
       setAdminError(err?.message || 'Не удалось сгенерировать ключ.');
+      setAdminBusy(false);
     } finally {
+      // The button should stop spinning as soon as key creation itself finishes.
       setAdminBusy(false);
     }
   };
