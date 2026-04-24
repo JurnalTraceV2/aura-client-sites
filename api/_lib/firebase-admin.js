@@ -18,6 +18,16 @@ import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { getDatabase as getAdminDatabase } from 'firebase-admin/database';
 import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 
+function resolveProjectId(serviceAccount = null) {
+  return String(
+    serviceAccount?.project_id ||
+      process.env.FIREBASE_PROJECT_ID ||
+      process.env.GOOGLE_CLOUD_PROJECT ||
+      process.env.GCLOUD_PROJECT ||
+      ''
+  ).trim();
+}
+
 function initAdmin() {
   if (getApps().length > 0) {
     return getApp();
@@ -31,14 +41,23 @@ function initAdmin() {
   if (credsJson) {
     try {
       const serviceAccount = JSON.parse(credsJson);
-      return initAdminApp({ credential: cert(serviceAccount), databaseURL });
+      const projectId = resolveProjectId(serviceAccount);
+      return initAdminApp({
+        credential: cert(serviceAccount),
+        databaseURL,
+        ...(projectId ? { projectId } : {})
+      });
     } catch (parseErr) {
       console.error('[firebase-admin] Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON:', parseErr?.message);
     }
   }
 
   // Fallback: Application Default Credentials (works on GCP / emulator)
-  return initAdminApp({ databaseURL });
+  const projectId = resolveProjectId();
+  return initAdminApp({
+    databaseURL,
+    ...(projectId ? { projectId } : {})
+  });
 }
 
 const adminApp = initAdmin();
