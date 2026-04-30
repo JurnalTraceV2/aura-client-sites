@@ -1,7 +1,14 @@
 import crypto from 'crypto';
 import { get, ref, set, push, update } from 'firebase/database';
 import { db } from './firebase.js';
-import { adminDb } from './firebase-admin.js';
+
+const DATABASE_URL = String(
+  process.env.FIREBASE_DATABASE_URL ||
+  'https://gen-lang-client-0640974949-default-rtdb.firebaseio.com'
+).replace(/\/$/, '');
+
+// Database secret gives full server-side access (bypasses all rules)
+const DB_SECRET = process.env.FIREBASE_DATABASE_SECRET || '';
 
 const KEY_FORMAT = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 const KEY_PREFIX = 'AURA';
@@ -102,6 +109,43 @@ export async function validateKey(keyId) {
   };
 }
 
+/**
+ * Server-side RTDB write using database secret (bypasses all security rules).
+ */
+async function serverPatch(path, data) {
+  if (!DB_SECRET) {
+    throw new Error('FIREBASE_DATABASE_SECRET env var is not set. Cannot write to RTDB.');
+  }
+  const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(DB_SECRET)}`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`RTDB PATCH ${path} failed: ${res.status} ${body}`);
+  }
+  return res.json();
+}
+
+async function serverPost(path, data) {
+  if (!DB_SECRET) {
+    throw new Error('FIREBASE_DATABASE_SECRET env var is not set. Cannot write to RTDB.');
+  }
+  const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(DB_SECRET)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`RTDB POST ${path} failed: ${res.status} ${body}`);
+  }
+  return res.json();
+}
+
 export async function activateKey(keyId, { uid, hwidHash, ip }) {
   const validation = await validateKey(keyId);
 
@@ -114,12 +158,9 @@ export async function activateKey(keyId, { uid, hwidHash, ip }) {
 
   const expiresAt = key.expiresAt || (key.tier === 'lifetime' ? null : now + (30 * 24 * 60 * 60 * 1000));
 
-  // Use Admin SDK — bypasses RTDB security rules
-  const adminRef = (path) => adminDb.ref(path);
-
   // 1. Apply subscription to user FIRST (most important step)
   console.log('[activateKey] Step 1: updating user subscription for uid:', uid);
-  await adminRef(`users/${uid}`).update({
+  await serverPatch(`users/${uid}`, {
     subscription: key.tier,
     subscriptionExpiresAt: expiresAt,
     subscriptionSource: 'key',
@@ -129,7 +170,7 @@ export async function activateKey(keyId, { uid, hwidHash, ip }) {
 
   // 2. Update entitlement
   console.log('[activateKey] Step 2: updating entitlement for uid:', uid);
-  await adminRef(`entitlements/${uid}`).update({
+  await serverPatch(`entitlements/${uid}`, {
     plan: key.tier,
     state: 'active',
     expiresAt,
@@ -141,21 +182,20 @@ export async function activateKey(keyId, { uid, hwidHash, ip }) {
   // 3. Record activation log (non-fatal)
   let activationId = null;
   try {
-    const activationRef = adminRef(`keyActivations/${key.keyId}`).push();
-    await activationRef.set({
+    const postResult = await serverPost(`keyActivations/${key.keyId}`, {
       uid,
       hwidHash: hwidHash || null,
       ip: ip || null,
       activatedAt: now
     });
-    activationId = activationRef.key;
+    activationId = postResult?.name || null;
   } catch (err) {
     console.warn('[activateKey] failed to write activation log (non-fatal):', err?.message);
   }
 
   // 4. Increment key counter LAST (if earlier steps fail, key can be retried)
   console.log('[activateKey] Step 4: incrementing key counter for:', key.keyId);
-  await adminRef(`keys/${key.keyId}`).update({
+  await serverPatch(`keys/${key.keyId}`, {
     currentActivations: (key.currentActivations || 0) + 1,
     lastActivatedAt: now
   });
