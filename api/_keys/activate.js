@@ -1,6 +1,6 @@
 import { normalizeKey, activateKey } from '../_lib/keys.js';
 import { verifyRequestAuth } from '../_lib/auth.js';
-import { methodNotAllowed, badRequest, unauthorized, serverError, tooManyRequests, getBody, extractBearerToken } from '../_lib/http.js';
+import { methodNotAllowed, badRequest, unauthorized, serverError, tooManyRequests, getBody } from '../_lib/http.js';
 import { checkRateLimit, getClientIp } from '../_lib/rate-limit.js';
 import { normalizeHwidHash, writeAuditLog } from '../_lib/license.js';
 
@@ -23,8 +23,6 @@ export default async function handler(req, res) {
       return unauthorized(res, authResult.message || 'Unauthorized');
     }
 
-    const idToken = extractBearerToken(req);
-
     const body = getBody(req);
     const keyId = normalizeKey(body.key);
     
@@ -39,8 +37,7 @@ export default async function handler(req, res) {
     const result = await activateKey(keyId, {
       uid: authResult.uid,
       hwidHash,
-      ip,
-      idToken
+      ip
     });
 
     if (!result.success) {

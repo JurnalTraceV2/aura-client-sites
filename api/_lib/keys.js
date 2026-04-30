@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { get, ref, set, push, update } from 'firebase/database';
 import { db } from './firebase.js';
+import { adminDb } from './firebase-admin.js';
 
 const KEY_FORMAT = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
 const KEY_PREFIX = 'AURA';
@@ -101,40 +102,7 @@ export async function validateKey(keyId) {
   };
 }
 
-const DATABASE_URL = String(
-  process.env.FIREBASE_DATABASE_URL ||
-  'https://gen-lang-client-0640974949-default-rtdb.firebaseio.com'
-).replace(/\/$/, '');
-
-async function rtdbPatchWithToken(path, data, idToken) {
-  const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`;
-  const res = await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`RTDB PATCH ${path} failed: ${res.status} ${err?.error || ''}`);
-  }
-  return res.json();
-}
-
-async function rtdbPostWithToken(path, data, idToken) {
-  const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(`RTDB POST ${path} failed: ${res.status} ${err?.error || ''}`);
-  }
-  return res.json();
-}
-
-export async function activateKey(keyId, { uid, hwidHash, ip, idToken }) {
+export async function activateKey(keyId, { uid, hwidHash, ip }) {
   const validation = await validateKey(keyId);
 
   if (!validation.valid) {
@@ -146,46 +114,53 @@ export async function activateKey(keyId, { uid, hwidHash, ip, idToken }) {
 
   const expiresAt = key.expiresAt || (key.tier === 'lifetime' ? null : now + (30 * 24 * 60 * 60 * 1000));
 
+  // Use Admin SDK — bypasses RTDB security rules
+  const adminRef = (path) => adminDb.ref(path);
+
   // 1. Apply subscription to user FIRST (most important step)
-  await rtdbPatchWithToken(`users/${uid}`, {
+  console.log('[activateKey] Step 1: updating user subscription for uid:', uid);
+  await adminRef(`users/${uid}`).update({
     subscription: key.tier,
     subscriptionExpiresAt: expiresAt,
     subscriptionSource: 'key',
     subscriptionKeyId: key.keyId,
     updatedAt: now
-  }, idToken);
+  });
 
   // 2. Update entitlement
-  await rtdbPatchWithToken(`entitlements/${uid}`, {
+  console.log('[activateKey] Step 2: updating entitlement for uid:', uid);
+  await adminRef(`entitlements/${uid}`).update({
     plan: key.tier,
     state: 'active',
     expiresAt,
     source: 'key_activation',
     keyId: key.keyId,
     updatedAt: now
-  }, idToken);
+  });
 
-  // 3. Record activation log
-  const activationData = {
-    uid,
-    hwidHash: hwidHash || null,
-    ip: ip || null,
-    activatedAt: now
-  };
+  // 3. Record activation log (non-fatal)
   let activationId = null;
   try {
-    const postResult = await rtdbPostWithToken(`keyActivations/${key.keyId}`, activationData, idToken);
-    activationId = postResult?.name || null;
+    const activationRef = adminRef(`keyActivations/${key.keyId}`).push();
+    await activationRef.set({
+      uid,
+      hwidHash: hwidHash || null,
+      ip: ip || null,
+      activatedAt: now
+    });
+    activationId = activationRef.key;
   } catch (err) {
-    console.warn('activateKey: failed to write activation log (non-fatal):', err?.message);
+    console.warn('[activateKey] failed to write activation log (non-fatal):', err?.message);
   }
 
-  // 4. Increment key counter LAST (so if earlier steps fail, key can be retried)
-  await rtdbPatchWithToken(`keys/${key.keyId}`, {
+  // 4. Increment key counter LAST (if earlier steps fail, key can be retried)
+  console.log('[activateKey] Step 4: incrementing key counter for:', key.keyId);
+  await adminRef(`keys/${key.keyId}`).update({
     currentActivations: (key.currentActivations || 0) + 1,
     lastActivatedAt: now
-  }, idToken);
+  });
 
+  console.log('[activateKey] Success! tier:', key.tier);
   return {
     success: true,
     tier: key.tier,
