@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { get, ref, set, push, update, query, orderByChild, equalTo } from 'firebase/database';
+import { get, ref, set, push, update } from 'firebase/database';
 import { db } from './firebase.js';
 
 const KEY_FORMAT = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
@@ -30,11 +30,10 @@ export function isValidKeyFormat(key) {
 export async function generateKey({ tier, durationDays, maxActivations = 1, metadata = {} }) {
   const raw = generateKeyParts();
   const keyId = formatKey(raw);
-  const keyRef = ref(db, `keys/${keyId}`);
-  
+
   const now = Date.now();
   const expiresAt = durationDays ? now + (durationDays * 24 * 60 * 60 * 1000) : null;
-  
+
   const keyData = {
     keyId,
     raw,
@@ -49,8 +48,8 @@ export async function generateKey({ tier, durationDays, maxActivations = 1, meta
       generatedBy: metadata.generatedBy || 'system'
     }
   };
-  
-  await set(keyRef, keyData);
+
+  await set(ref(db, `keys/${keyId}`), keyData);
   return keyData;
 }
 
@@ -66,37 +65,36 @@ export async function generateKeysBatch({ count, tier, durationDays, maxActivati
 export async function getKey(keyId) {
   const normalized = normalizeKey(keyId);
   const formatted = formatKey(normalized);
-  const keyRef = ref(db, `keys/${formatted}`);
-  const snapshot = await get(keyRef);
-  
+  const snapshot = await get(ref(db, `keys/${formatted}`));
+
   if (!snapshot.exists()) {
     return null;
   }
-  
+
   return snapshot.val();
 }
 
 export async function validateKey(keyId) {
   const key = await getKey(keyId);
-  
+
   if (!key) {
     return { valid: false, reason: 'Key not found' };
   }
-  
+
   if (key.status !== 'active') {
     return { valid: false, reason: `Key is ${key.status}` };
   }
-  
+
   if (key.expiresAt && Date.now() > key.expiresAt) {
     return { valid: false, reason: 'Key has expired' };
   }
-  
+
   if (key.currentActivations >= key.maxActivations) {
     return { valid: false, reason: 'Key activation limit reached' };
   }
-  
-  return { 
-    valid: true, 
+
+  return {
+    valid: true,
     key,
     tier: key.tier,
     remainingActivations: key.maxActivations - key.currentActivations
@@ -105,14 +103,14 @@ export async function validateKey(keyId) {
 
 export async function activateKey(keyId, { uid, hwidHash, ip }) {
   const validation = await validateKey(keyId);
-  
+
   if (!validation.valid) {
     return { success: false, error: validation.reason };
   }
-  
+
   const key = validation.key;
   const now = Date.now();
-  
+
   // Record activation
   const activationRef = push(ref(db, `keyActivations/${key.keyId}`));
   const activationData = {
@@ -121,18 +119,18 @@ export async function activateKey(keyId, { uid, hwidHash, ip }) {
     ip: ip || null,
     activatedAt: now
   };
-  
+
   await set(activationRef, activationData);
-  
+
   // Update key activation count
   await update(ref(db, `keys/${key.keyId}`), {
     currentActivations: (key.currentActivations || 0) + 1,
     lastActivatedAt: now
   });
-  
+
   // Apply subscription to user
   const expiresAt = key.expiresAt || (key.tier === 'lifetime' ? null : now + (30 * 24 * 60 * 60 * 1000));
-  
+
   await update(ref(db, `users/${uid}`), {
     subscription: key.tier,
     subscriptionExpiresAt: expiresAt,
@@ -140,7 +138,7 @@ export async function activateKey(keyId, { uid, hwidHash, ip }) {
     subscriptionKeyId: key.keyId,
     updatedAt: now
   });
-  
+
   await update(ref(db, `entitlements/${uid}`), {
     plan: key.tier,
     state: 'active',
@@ -149,7 +147,7 @@ export async function activateKey(keyId, { uid, hwidHash, ip }) {
     keyId: key.keyId,
     updatedAt: now
   });
-  
+
   return {
     success: true,
     tier: key.tier,
@@ -163,48 +161,46 @@ export async function revokeKey(keyId, reason = '') {
   if (!key) {
     return { success: false, error: 'Key not found' };
   }
-  
+
   await update(ref(db, `keys/${key.keyId}`), {
     status: 'revoked',
     revokedAt: Date.now(),
     revokeReason: reason
   });
-  
+
   return { success: true };
 }
 
 export async function listKeys({ status, tier, limit = 100 } = {}) {
-  const keysRef = ref(db, 'keys');
-  const snapshot = await get(keysRef);
-  
+  const snapshot = await get(ref(db, 'keys'));
+
   if (!snapshot.exists()) {
     return [];
   }
-  
+
   let keys = Object.values(snapshot.val() || {});
-  
+
   if (status) {
     keys = keys.filter(k => k.status === status);
   }
-  
+
   if (tier) {
     keys = keys.filter(k => k.tier === tier);
   }
-  
+
   return keys.slice(0, limit).sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function getUserActivations(uid) {
-  const activationsRef = ref(db, 'keyActivations');
-  const snapshot = await get(activationsRef);
-  
+  const snapshot = await get(ref(db, 'keyActivations'));
+
   if (!snapshot.exists()) {
     return [];
   }
-  
+
   const allActivations = snapshot.val() || {};
   const userActivations = [];
-  
+
   for (const [keyId, activations] of Object.entries(allActivations)) {
     for (const [activationId, data] of Object.entries(activations)) {
       if (data.uid === uid) {
@@ -216,6 +212,6 @@ export async function getUserActivations(uid) {
       }
     }
   }
-  
+
   return userActivations.sort((a, b) => b.activatedAt - a.activatedAt);
 }

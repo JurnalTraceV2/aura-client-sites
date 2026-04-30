@@ -1,6 +1,6 @@
 import { normalizeKey, activateKey } from '../_lib/keys.js';
 import { verifyRequestAuth } from '../_lib/auth.js';
-import { methodNotAllowed, badRequest, unauthorized, serverError, tooManyRequests } from '../_lib/http.js';
+import { methodNotAllowed, badRequest, unauthorized, serverError, tooManyRequests, getBody } from '../_lib/http.js';
 import { checkRateLimit, getClientIp } from '../_lib/rate-limit.js';
 import { normalizeHwidHash, writeAuditLog } from '../_lib/license.js';
 
@@ -23,7 +23,7 @@ export default async function handler(req, res) {
       return unauthorized(res, auth.message || 'Unauthorized');
     }
 
-    const body = req.body || {};
+    const body = getBody(req);
     const keyId = normalizeKey(body.key);
     
     if (!keyId || keyId.length !== 16) {
@@ -33,6 +33,7 @@ export default async function handler(req, res) {
     const hwidHash = normalizeHwidHash(body.hwid);
     const ip = getClientIp(req);
 
+    console.log('[keys/activate] Activating key:', keyId, 'for uid:', auth.uid);
     const result = await activateKey(keyId, {
       uid: auth.uid,
       hwidHash,

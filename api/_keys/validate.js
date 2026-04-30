@@ -1,5 +1,5 @@
 import { normalizeKey, validateKey } from '../_lib/keys.js';
-import { methodNotAllowed, badRequest, serverError } from '../_lib/http.js';
+import { methodNotAllowed, badRequest, serverError, getBody } from '../_lib/http.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,15 +7,17 @@ export default async function handler(req, res) {
   }
 
   try {
-    const body = req.body || {};
+    const body = getBody(req);
     const keyId = normalizeKey(body.key);
     
     if (!keyId || keyId.length !== 16) {
       return badRequest(res, 'Invalid key format');
     }
     
+    console.log('[keys/validate] Looking up key:', keyId, 'formatted:', normalizeKey(keyId));
     const result = await validateKey(keyId);
-    
+    console.log('[keys/validate] Result:', result.valid, result.reason || 'ok');
+
     return res.status(200).json({
       ok: true,
       valid: result.valid,

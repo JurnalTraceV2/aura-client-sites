@@ -45,8 +45,9 @@ function parseArgs() {
     duration: null,
     activations: 1,
     output: null,
-    firebaseUrl: process.env.FIREBASE_DATABASE_URL || '',
-    adminSecret: process.env.ADMIN_API_SECRET || ''
+    firebaseUrl: process.env.FIREBASE_DATABASE_URL || 'https://gen-lang-client-0640974949-default-rtdb.firebaseio.com',
+    adminSecret: process.env.ADMIN_API_SECRET || '',
+    noUpload: false
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -77,6 +78,9 @@ function parseArgs() {
       case '--admin-secret':
         options.adminSecret = args[++i];
         break;
+      case '--no-upload':
+        options.noUpload = true;
+        break;
       case '--help':
       case '-h':
         showHelp();
@@ -100,8 +104,9 @@ Options:
   -d, --duration <days>      Duration in days (optional, auto-set by tier)
   -a, --activations <num>    Max activations per key (1-10, default: 1)
   -o, --output <file>        Output file for keys (optional)
-  --firebase-url <url>       Firebase Database URL
+  --firebase-url <url>       Firebase Database URL (default: built-in)
   --admin-secret <secret>    Admin API secret for auto-upload
+  --no-upload                Skip Firebase upload (keys won't work!)
   -h, --help                 Show this help
 
 Examples:
@@ -261,11 +266,24 @@ async function main() {
     console.log(`✓ Keys saved to: ${options.output}\n`);
   }
 
-  // Try to upload
-  if (options.firebaseUrl) {
-    await uploadToFirebase(keys, options);
+  // Upload to Firebase (mandatory for keys to work!)
+  if (options.noUpload) {
+    console.log('⚠ WARNING: --no-upload specified. Keys are NOT in Firebase and will NOT work!');
+    console.log('   Run again without --no-upload to upload keys.\n');
+  } else if (options.firebaseUrl) {
+    console.log('Uploading keys to Firebase...');
+    const uploaded = await uploadToFirebase(keys, options);
+    if (uploaded) {
+      console.log('✓ All keys uploaded to Firebase and ready to use!\n');
+    } else {
+      console.log('⚠ Some keys failed to upload. Check errors above.\n');
+    }
   } else if (options.adminSecret) {
     await uploadViaApi(keys, options);
+  } else {
+    console.log('⚠ WARNING: Keys were NOT uploaded to Firebase!');
+    console.log('   They will NOT work when activated.');
+    console.log('   Provide --firebase-url or --admin-secret to upload.\n');
   }
 
   console.log('\n✓ Done!');
