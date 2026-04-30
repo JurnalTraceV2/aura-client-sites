@@ -10,9 +10,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Rate limit key activations
+    // Rate limit key activations (per-IP)
     const clientIp = getClientIp(req);
-    const rateLimit = await checkRateLimit('key_activate', clientIp, 10, 60 * 60 * 1000);
+    const rateLimit = checkRateLimit(`key_activate:${clientIp}`, 10, 60 * 60 * 1000);
     if (!rateLimit.allowed) {
       return tooManyRequests(res, rateLimit.retryAfterMs);
     }
