@@ -101,7 +101,40 @@ export async function validateKey(keyId) {
   };
 }
 
-export async function activateKey(keyId, { uid, hwidHash, ip }) {
+const DATABASE_URL = String(
+  process.env.FIREBASE_DATABASE_URL ||
+  'https://gen-lang-client-0640974949-default-rtdb.firebaseio.com'
+).replace(/\/$/, '');
+
+async function rtdbPatchWithToken(path, data, idToken) {
+  const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`;
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`RTDB PATCH ${path} failed: ${res.status} ${err?.error || ''}`);
+  }
+  return res.json();
+}
+
+async function rtdbPostWithToken(path, data, idToken) {
+  const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`RTDB POST ${path} failed: ${res.status} ${err?.error || ''}`);
+  }
+  return res.json();
+}
+
+export async function activateKey(keyId, { uid, hwidHash, ip, idToken }) {
   const validation = await validateKey(keyId);
 
   if (!validation.valid) {
@@ -111,48 +144,53 @@ export async function activateKey(keyId, { uid, hwidHash, ip }) {
   const key = validation.key;
   const now = Date.now();
 
-  // Record activation
-  const activationRef = push(ref(db, `keyActivations/${key.keyId}`));
-  const activationData = {
-    uid,
-    hwidHash: hwidHash || null,
-    ip: ip || null,
-    activatedAt: now
-  };
-
-  await set(activationRef, activationData);
-
-  // Update key activation count
-  await update(ref(db, `keys/${key.keyId}`), {
-    currentActivations: (key.currentActivations || 0) + 1,
-    lastActivatedAt: now
-  });
-
-  // Apply subscription to user
   const expiresAt = key.expiresAt || (key.tier === 'lifetime' ? null : now + (30 * 24 * 60 * 60 * 1000));
 
-  await update(ref(db, `users/${uid}`), {
+  // 1. Apply subscription to user FIRST (most important step)
+  await rtdbPatchWithToken(`users/${uid}`, {
     subscription: key.tier,
     subscriptionExpiresAt: expiresAt,
     subscriptionSource: 'key',
     subscriptionKeyId: key.keyId,
     updatedAt: now
-  });
+  }, idToken);
 
-  await update(ref(db, `entitlements/${uid}`), {
+  // 2. Update entitlement
+  await rtdbPatchWithToken(`entitlements/${uid}`, {
     plan: key.tier,
     state: 'active',
     expiresAt,
     source: 'key_activation',
     keyId: key.keyId,
     updatedAt: now
-  });
+  }, idToken);
+
+  // 3. Record activation log
+  const activationData = {
+    uid,
+    hwidHash: hwidHash || null,
+    ip: ip || null,
+    activatedAt: now
+  };
+  let activationId = null;
+  try {
+    const postResult = await rtdbPostWithToken(`keyActivations/${key.keyId}`, activationData, idToken);
+    activationId = postResult?.name || null;
+  } catch (err) {
+    console.warn('activateKey: failed to write activation log (non-fatal):', err?.message);
+  }
+
+  // 4. Increment key counter LAST (so if earlier steps fail, key can be retried)
+  await rtdbPatchWithToken(`keys/${key.keyId}`, {
+    currentActivations: (key.currentActivations || 0) + 1,
+    lastActivatedAt: now
+  }, idToken);
 
   return {
     success: true,
     tier: key.tier,
     expiresAt,
-    activationId: activationRef.key
+    activationId
   };
 }
 

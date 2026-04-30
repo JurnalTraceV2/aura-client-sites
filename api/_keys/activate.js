@@ -1,6 +1,6 @@
 import { normalizeKey, activateKey } from '../_lib/keys.js';
 import { verifyRequestAuth } from '../_lib/auth.js';
-import { methodNotAllowed, badRequest, unauthorized, serverError, tooManyRequests, getBody } from '../_lib/http.js';
+import { methodNotAllowed, badRequest, unauthorized, serverError, tooManyRequests, getBody, extractBearerToken } from '../_lib/http.js';
 import { checkRateLimit, getClientIp } from '../_lib/rate-limit.js';
 import { normalizeHwidHash, writeAuditLog } from '../_lib/license.js';
 
@@ -18,10 +18,12 @@ export default async function handler(req, res) {
     }
 
     // Verify user authentication
-    const auth = await verifyRequestAuth(req);
-    if (!auth.ok) {
-      return unauthorized(res, auth.message || 'Unauthorized');
+    const authResult = await verifyRequestAuth(req);
+    if (!authResult.ok) {
+      return unauthorized(res, authResult.message || 'Unauthorized');
     }
+
+    const idToken = extractBearerToken(req);
 
     const body = getBody(req);
     const keyId = normalizeKey(body.key);
@@ -33,11 +35,12 @@ export default async function handler(req, res) {
     const hwidHash = normalizeHwidHash(body.hwid);
     const ip = getClientIp(req);
 
-    console.log('[keys/activate] Activating key:', keyId, 'for uid:', auth.uid);
+    console.log('[keys/activate] Activating key:', keyId, 'for uid:', authResult.uid);
     const result = await activateKey(keyId, {
-      uid: auth.uid,
+      uid: authResult.uid,
       hwidHash,
-      ip
+      ip,
+      idToken
     });
 
     if (!result.success) {
@@ -47,12 +50,17 @@ export default async function handler(req, res) {
       });
     }
 
-    await writeAuditLog('key_activated', {
-      uid: auth.uid,
-      keyId,
-      tier: result.tier,
-      ip
-    });
+    // Audit log is non-fatal
+    try {
+      await writeAuditLog('key_activated', {
+        uid: authResult.uid,
+        keyId,
+        tier: result.tier,
+        ip
+      });
+    } catch (auditErr) {
+      console.warn('[keys/activate] writeAuditLog failed (non-fatal):', auditErr?.message);
+    }
 
     return res.status(200).json({
       ok: true,
