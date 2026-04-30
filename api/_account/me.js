@@ -10,6 +10,7 @@
 
 import { verifyRequestAuth } from '../_lib/auth.js';
 import { resolveEntitlementState } from '../_lib/license.js';
+import { findUserActiveKey } from '../_lib/keys.js';
 import { methodNotAllowed, serverError, unauthorized, extractBearerToken } from '../_lib/http.js';
 
 const DATABASE_URL = String(
@@ -186,7 +187,26 @@ export default async function handler(req, res) {
     // Read entitlement
     const entitlement = await rtdbGet(`entitlements/${auth.uid}`, idToken);
 
-    const subState = resolveEntitlementState(user, entitlement);
+    let subState = resolveEntitlementState(user, entitlement);
+
+    // If no active subscription from entitlements, check for activated keys
+    if (!subState.active) {
+      try {
+        console.log('[account/me] No active entitlement, checking key activations...');
+        const activeKey = await findUserActiveKey(auth.uid);
+        if (activeKey) {
+          console.log('[account/me] Found active key:', activeKey.keyId, 'tier:', activeKey.tier);
+          subState = {
+            active: true,
+            state: 'active',
+            plan: activeKey.tier,
+            expiresAt: activeKey.activationExpiresAt || null
+          };
+        }
+      } catch (keyErr) {
+        console.warn('[account/me] findUserActiveKey failed (non-fatal):', keyErr?.message);
+      }
+    }
 
     // Read payments — try user-scoped path first (`userPayments/{uid}`)
     const payments = [];

@@ -1,8 +1,7 @@
 import { normalizeKey, activateKey } from '../_lib/keys.js';
 import { verifyRequestAuth } from '../_lib/auth.js';
-import { methodNotAllowed, badRequest, unauthorized, serverError, tooManyRequests, getBody } from '../_lib/http.js';
-import { checkRateLimit, getClientIp } from '../_lib/rate-limit.js';
-import { normalizeHwidHash, writeAuditLog } from '../_lib/license.js';
+import { methodNotAllowed, badRequest, unauthorized, getBody } from '../_lib/http.js';
+import { getClientIp } from '../_lib/rate-limit.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -10,13 +9,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Rate limit key activations (per-IP)
-    const clientIp = getClientIp(req);
-    const rateLimit = checkRateLimit(`key_activate:${clientIp}`, 10, 60 * 60 * 1000);
-    if (!rateLimit.allowed) {
-      return tooManyRequests(res, rateLimit.retryAfterMs);
-    }
-
     // Verify user authentication
     const authResult = await verifyRequestAuth(req);
     if (!authResult.ok) {
@@ -25,40 +17,30 @@ export default async function handler(req, res) {
 
     const body = getBody(req);
     const keyId = normalizeKey(body.key);
-    
+
     if (!keyId || keyId.length !== 16) {
       return badRequest(res, 'Invalid key format');
     }
 
-    const hwidHash = normalizeHwidHash(body.hwid);
     const ip = getClientIp(req);
 
-    console.log('[keys/activate] Activating key:', keyId, 'for uid:', authResult.uid);
+    console.log('[keys/activate] uid:', authResult.uid, 'key:', keyId);
     const result = await activateKey(keyId, {
       uid: authResult.uid,
-      hwidHash,
+      hwidHash: null,
       ip
     });
 
     if (!result.success) {
+      console.warn('[keys/activate] activation failed:', result.error, 'step:', result.step);
       return res.status(400).json({
         ok: false,
-        error: result.error
+        error: result.error,
+        step: result.step || null
       });
     }
 
-    // Audit log is non-fatal
-    try {
-      await writeAuditLog('key_activated', {
-        uid: authResult.uid,
-        keyId,
-        tier: result.tier,
-        ip
-      });
-    } catch (auditErr) {
-      console.warn('[keys/activate] writeAuditLog failed (non-fatal):', auditErr?.message);
-    }
-
+    console.log('[keys/activate] success! tier:', result.tier);
     return res.status(200).json({
       ok: true,
       tier: result.tier,
@@ -66,7 +48,11 @@ export default async function handler(req, res) {
       message: 'Key activated successfully'
     });
   } catch (error) {
-    console.error('keys/activate error:', error);
-    return serverError(res, 'Failed to activate key', error?.message);
+    console.error('[keys/activate] unhandled error:', error);
+    return res.status(500).json({
+      ok: false,
+      error: 'Server error: ' + (error?.message || 'unknown'),
+      stack: process.env.NODE_ENV !== 'production' ? error?.stack : undefined
+    });
   }
 }

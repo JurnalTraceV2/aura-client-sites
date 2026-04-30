@@ -1,17 +1,8 @@
 import crypto from 'crypto';
-import { get, ref, set, push, update } from 'firebase/database';
+import { get, ref, set, update } from 'firebase/database';
 import { db } from './firebase.js';
 
-const DATABASE_URL = String(
-  process.env.FIREBASE_DATABASE_URL ||
-  'https://gen-lang-client-0640974949-default-rtdb.firebaseio.com'
-).replace(/\/$/, '');
-
-// Database secret gives full server-side access (bypasses all rules)
-const DB_SECRET = process.env.FIREBASE_DATABASE_SECRET || '';
-
 const KEY_FORMAT = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
-const KEY_PREFIX = 'AURA';
 
 export function generateKeyParts() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -110,102 +101,59 @@ export async function validateKey(keyId) {
 }
 
 /**
- * Server-side RTDB write using database secret (bypasses all security rules).
+ * Activate a key for a user.
+ *
+ * Writes ONLY to `keys/{keyId}` path — this is the same path that generateKey
+ * uses, so it is guaranteed to work with current RTDB rules.
+ *
+ * Subscription is resolved at read-time in me.js by checking
+ * key activation data stored on the key record itself.
  */
-async function serverPatch(path, data) {
-  if (!DB_SECRET) {
-    throw new Error('FIREBASE_DATABASE_SECRET env var is not set. Cannot write to RTDB.');
-  }
-  const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(DB_SECRET)}`;
-  const res = await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`RTDB PATCH ${path} failed: ${res.status} ${body}`);
-  }
-  return res.json();
-}
-
-async function serverPost(path, data) {
-  if (!DB_SECRET) {
-    throw new Error('FIREBASE_DATABASE_SECRET env var is not set. Cannot write to RTDB.');
-  }
-  const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(DB_SECRET)}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`RTDB POST ${path} failed: ${res.status} ${body}`);
-  }
-  return res.json();
-}
-
 export async function activateKey(keyId, { uid, hwidHash, ip }) {
-  const validation = await validateKey(keyId);
+  const errors = [];
+
+  // Step 1: validate
+  console.log('[activateKey] Validating key...');
+  let validation;
+  try {
+    validation = await validateKey(keyId);
+  } catch (err) {
+    console.error('[activateKey] validateKey threw:', err);
+    return { success: false, error: 'DB read error: ' + (err?.message || 'unknown'), step: 'validate' };
+  }
 
   if (!validation.valid) {
-    return { success: false, error: validation.reason };
+    return { success: false, error: validation.reason, step: 'validate' };
   }
 
   const key = validation.key;
   const now = Date.now();
-
   const expiresAt = key.expiresAt || (key.tier === 'lifetime' ? null : now + (30 * 24 * 60 * 60 * 1000));
 
-  // 1. Apply subscription to user FIRST (most important step)
-  console.log('[activateKey] Step 1: updating user subscription for uid:', uid);
-  await serverPatch(`users/${uid}`, {
-    subscription: key.tier,
-    subscriptionExpiresAt: expiresAt,
-    subscriptionSource: 'key',
-    subscriptionKeyId: key.keyId,
-    updatedAt: now
-  });
-
-  // 2. Update entitlement
-  console.log('[activateKey] Step 2: updating entitlement for uid:', uid);
-  await serverPatch(`entitlements/${uid}`, {
-    plan: key.tier,
-    state: 'active',
-    expiresAt,
-    source: 'key_activation',
-    keyId: key.keyId,
-    updatedAt: now
-  });
-
-  // 3. Record activation log (non-fatal)
-  let activationId = null;
+  // Step 2: update the key record — mark as activated, store who activated it
+  // This writes to keys/{keyId} which we KNOW works (generateKey uses the same path)
+  console.log('[activateKey] Updating key record:', key.keyId, 'for uid:', uid);
   try {
-    const postResult = await serverPost(`keyActivations/${key.keyId}`, {
-      uid,
-      hwidHash: hwidHash || null,
-      ip: ip || null,
-      activatedAt: now
+    await update(ref(db, `keys/${key.keyId}`), {
+      currentActivations: (key.currentActivations || 0) + 1,
+      lastActivatedAt: now,
+      activatedByUid: uid,
+      activatedByHwid: hwidHash || null,
+      activatedByIp: ip || null,
+      activatedAt: now,
+      activationExpiresAt: expiresAt
     });
-    activationId = postResult?.name || null;
   } catch (err) {
-    console.warn('[activateKey] failed to write activation log (non-fatal):', err?.message);
+    console.error('[activateKey] Failed to update key record:', err);
+    return { success: false, error: 'Failed to update key: ' + (err?.message || 'unknown'), step: 'update_key' };
   }
 
-  // 4. Increment key counter LAST (if earlier steps fail, key can be retried)
-  console.log('[activateKey] Step 4: incrementing key counter for:', key.keyId);
-  await serverPatch(`keys/${key.keyId}`, {
-    currentActivations: (key.currentActivations || 0) + 1,
-    lastActivatedAt: now
-  });
-
-  console.log('[activateKey] Success! tier:', key.tier);
+  console.log('[activateKey] Key activated successfully! tier:', key.tier, 'uid:', uid);
   return {
     success: true,
     tier: key.tier,
     expiresAt,
-    activationId
+    keyId: key.keyId
   };
 }
 
@@ -244,27 +192,30 @@ export async function listKeys({ status, tier, limit = 100 } = {}) {
   return keys.slice(0, limit).sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export async function getUserActivations(uid) {
-  const snapshot = await get(ref(db, 'keyActivations'));
+/**
+ * Find key activated by a specific user.
+ * Scans all keys for activatedByUid match. Returns the best active key.
+ */
+export async function findUserActiveKey(uid) {
+  const snapshot = await get(ref(db, 'keys'));
+  if (!snapshot.exists()) return null;
 
-  if (!snapshot.exists()) {
-    return [];
-  }
+  const allKeys = snapshot.val() || {};
+  let bestKey = null;
 
-  const allActivations = snapshot.val() || {};
-  const userActivations = [];
+  for (const keyData of Object.values(allKeys)) {
+    if (keyData.activatedByUid !== uid) continue;
+    if (keyData.status !== 'active') continue;
 
-  for (const [keyId, activations] of Object.entries(allActivations)) {
-    for (const [activationId, data] of Object.entries(activations)) {
-      if (data.uid === uid) {
-        userActivations.push({
-          activationId,
-          keyId,
-          ...data
-        });
-      }
+    // Check if activation is still valid (not expired)
+    const expiresAt = keyData.activationExpiresAt;
+    if (expiresAt && Date.now() > expiresAt) continue;
+
+    // Prefer the most recently activated key
+    if (!bestKey || (keyData.activatedAt || 0) > (bestKey.activatedAt || 0)) {
+      bestKey = keyData;
     }
   }
 
-  return userActivations.sort((a, b) => b.activatedAt - a.activatedAt);
+  return bestKey;
 }

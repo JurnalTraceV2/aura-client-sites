@@ -567,9 +567,24 @@ export async function verifySessionToken(sessionToken, hwidHash, options = {}) {
   }
 
   const entitlement = await getEntitlement(session.uid);
-  const entitlementState = resolveEntitlementState(user, entitlement, now);
+  let entitlementState = resolveEntitlementState(user, entitlement, now);
   if (!entitlementState.active) {
-    return { valid: false, message: 'Subscription inactive.' };
+    // Fallback: check key activations
+    try {
+      const { findUserActiveKey } = await import('./keys.js');
+      const activeKey = await findUserActiveKey(session.uid);
+      if (activeKey) {
+        entitlementState = {
+          active: true,
+          state: 'active',
+          plan: activeKey.tier,
+          expiresAt: activeKey.activationExpiresAt || null
+        };
+      }
+    } catch (_) { /* non-fatal */ }
+    if (!entitlementState.active) {
+      return { valid: false, message: 'Subscription inactive.' };
+    }
   }
 
   const patch = {};

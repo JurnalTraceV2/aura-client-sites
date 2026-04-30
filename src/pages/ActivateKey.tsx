@@ -74,7 +74,16 @@ export default function ActivateKey() {
         body: JSON.stringify({ key: key.replace(/-/g, '') })
       });
 
-      const activateData = await activateRes.json();
+      let activateData;
+      try {
+        activateData = await activateRes.json();
+      } catch {
+        setResult({
+          success: false,
+          message: `Сервер вернул ${activateRes.status}: не удалось прочитать ответ`
+        });
+        return;
+      }
 
       if (activateData.ok) {
         setResult({
@@ -86,13 +95,13 @@ export default function ActivateKey() {
       } else {
         setResult({
           success: false,
-          message: activateData.error || 'Ошибка активации ключа'
+          message: activateData.error || `Ошибка активации (HTTP ${activateRes.status})`
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       setResult({
         success: false,
-        message: 'Ошибка сети. Попробуйте позже.'
+        message: 'Ошибка сети: ' + (error?.message || 'Попробуйте позже')
       });
     } finally {
       setLoading(false);
