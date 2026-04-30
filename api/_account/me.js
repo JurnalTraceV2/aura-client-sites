@@ -153,19 +153,26 @@ export default async function handler(req, res) {
 
   try {
     // Verify the Firebase ID token
+    console.log('[account/me] Starting auth verification...');
     const auth = await verifyRequestAuth(req);
+    console.log('[account/me] Auth result:', { ok: auth.ok, uid: auth.uid, message: auth.message });
     if (!auth.ok) {
       return unauthorized(res, auth.message || 'Unauthorized.');
     }
 
     // Keep the raw ID token for subsequent REST API calls
     const idToken = extractBearerToken(req);
+    console.log('[account/me] Token extracted:', !!idToken);
 
     // Ensure user record exists (non-fatal)
+    console.log('[account/me] Ensuring user record for uid:', auth.uid);
     await ensureUserRecord(auth.uid, auth.email || null, auth.username || null, idToken);
+    console.log('[account/me] User record ensured');
 
     // Read the user profile
+    console.log('[account/me] Reading user profile...');
     const user = (await rtdbGet(`users/${auth.uid}`, idToken)) || {};
+    console.log('[account/me] User profile read:', Object.keys(user));
 
     // Read entitlement
     const entitlement = await rtdbGet(`entitlements/${auth.uid}`, idToken);
@@ -210,7 +217,8 @@ export default async function handler(req, res) {
       payments: payments.slice(0, 10)
     });
   } catch (error) {
-    console.error('account/me error:', error);
+    console.error('[account/me] ERROR:', error?.message || error);
+    console.error('[account/me] Stack:', error?.stack || 'no stack');
     return serverError(res, 'Internal server error.', error?.message);
   }
 }

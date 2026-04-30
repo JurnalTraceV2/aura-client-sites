@@ -1,0 +1,128 @@
+[33m06b919e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m chore: sync artifacts and update backend logic
+[33m8caa982[m chore: sync artifacts and update backend logic
+[33m51c8ed9[m chore: sync artifacts and update backend logic
+[33mb9eec79[m chore: sync artifacts and update backend logic
+[33m7c8f460[m chore: sync artifacts and update backend logic
+[33mca81f9a[m chore: sync artifacts and update backend logic
+[33mf7da793[m chore: sync artifacts and update backend logic
+[33m8cdfc43[m fix: admin key generation - add CORS OPTIONS handling, improve error handling
+[33m573dcca[m fix: fallback admin keys to realtime database
+[33m7e07529[m fix: skip admin auth when project id is missing
+[33m67c9f1c[m fix: provide project id to firebase admin
+[33m88833cb[m fix: align admin role checks with account lookup
+[33m6a6e9c5[m fix: timeout admin key auth and lookups
+[33m13151b8[m fix: stop infinite admin key spinner
+[33ma61ce82[m fix: use default firestore database by default
+[33mce1a9b1[m Prevent dashboard loading from admin lookups
+[33m42fea02[m Improve admin key generation feedback
+[33m978e26a[m Fix dashboard modal overflow
+[33m9ad7146[m Fix admin role fallback
+[33mb29a0d6[m chore: trigger redeploy
+[33m1673bf0[m Add admin subscription key system
+[33m4a2c1d4[m Add files via upload
+[33m3a07d53[m Delete artifacts/Aura.jar
+[33m1451b22[m chore: sync artifacts and update backend logic
+[33m5c10ecd[m fix: add missing launcher-url endpoint
+[33m15f6bc3[m fix: remove missing launcher-url import causing HTTP 500
+[33mbf41bd8[m chore: sync artifacts and update backend logic
+[33m80c7dea[m chore: sync artifacts and update backend logic
+[33m8bfe83d[m fix-admin-sdk-bypass-rtdb-rules
+[33maef9257[m fix: make me.js fully fault-tolerant with safeGet helper for all Firebase reads
+[33m1bd9407[m chore: sync artifacts and update backend logic
+[33me7fd6c3[m fix: wrap payments read in try/catch to prevent HTTP 500
+[33m5c444ed[m chore: sync artifacts and update backend logic
+[33m803efb0[m chore: sync artifacts and update backend logic
+[33m8d7de63[m chore: sync artifacts and update backend logic
+[33mb77f75f[m chore: sync artifacts and update backend logic
+[33m7b767c7[m chore: sync artifacts and update backend logic
+[33m4cd1710[m chore: sync artifacts and update backend logic
+[33mcab3ab2[m chore: sync artifacts and update backend logic
+[33mb85a762[m Increase JWT token expiration times
+[33me8de1d4[m Update JAR URL to GitHub Releases
+[33me53b664[m Add external JAR URL from GitHub Releases
+[33mbfb5470[m Remove artifacts from deployment
+[33m3ee08ba[m Update vercel config for JAR files
+[33ma433b8a[m initial commit
+[33m3dd54d7[m chore: sync artifacts and update backend logic
+[33m1ec0a0c[m chore: sync artifacts and update backend logic
+[33me03d696[m Build and Update Client (Aura)
+[33mf78de15[m Update Client with ConfigManager
+[33m6f756e9[m Fix dependencies and optimize Client JAR
+[33m2d725ec[m initial commit
+[33mc514be5[m Pick newest client jar from artifacts
+[33mb9f4acb[m Update AuraLauncher.exe
+[33m30bc525[m Add release metadata
+[33m8a65949[m init
+[33md9975e7[m init
+[33mdd0e4b9[m fix loader
+[33md2e6338[m init
+[33m3113d14[m Fix client verify route for Aura mod
+[33me1bafa9[m Fix mojibake in contacts/legal pages and footer реквизиты
+[33mb96978a[m Я пастер Суки
+[33mebc9b6a[m Fix Vercel deploy by reducing serverless function count
+[33m2c9684e[m первый коммит
+[33mc8a90fe[m Нехуй читать Ок?
+[33m38cb433[m Fix Vercel deploy by reducing serverless function count
+[33m3f67864[m Final cleanup of legacy api files
+[33m9560c23[m Restore vercel.json builds and enforce Node 20.x
+[33m7519cdb[m Switch to Vercel Zero Config to fix build errors
+[33m84ced3a[m Refactor artifact handler to fix variable shadowing and build errors
+[33mf140855[m Fix redundant usedTokenKey block and ReferenceError
+[33medd64a7[m Fix artifact download scope and enforce subscriptions
+[33m7293f92[m Update site backend for Aura Loader
+[33m1e8b839[m fix: repair broken payment modal copy encoding
+[33mc2ffb4a[m fix: restore utf-8 russian ui copy after mojibake
+[33m98005d8[m chore: reduce hobby function count for production deploy
+[33mef7370a[m feat: unify protected contour and canonicalize 1.21.4 fabric
+[33m8c96686[m fix nameaa
+[33m1a226a9[m fix namea
+[33m4c876c2[m fix name
+[33m9228ef5[m Enhanced security update - improved loader design and protection features
+[33mafa0850[m hotfix: javaw launcher build and client startup crash fix
+[33m86277d5[m hotfix: silence log4j status logger on startup
+[33m56f65c4[m hotfix: stabilize launcher start and artifact metadata sync
+[33m597294f[m hotfix: replace AuraClient jar and sync release metadata
+[33md3cf100[m fix: add manifest and download token fallbacks for misconfigured env
+[33m312a1df[m fix: use direct launcher download flow in dashboard
+[33me405b8c[m fix: serve launcher from public downloads to avoid vercel artifact 500
+[33m28265ce[m fix: avoid launcher-url 500 when artifact probe fails
+[33m60df30e[m fix: use glob string includeFiles for vercel functions
+[33m9e7feed[m fix: include launcher artifact for launcher-url api
+[33me9d3896[m fix: correct vercel includeFiles format for artifacts
+[33m0161f46[m fix: include launcher and client artifacts in vercel functions
+[33m71eed54[m fix: improve launcher download diagnostics and env docs
+[33mfc26605[m fix: fallback signing secret for download links
+[33mc48ccf3[m fix: add firebase fallback config for production
+[33m867306a[m fix: reduce vercel functions to hobby limit
+[33m500acb3[m chore: refresh launcher artifact and runtime messaging
+[33m4cabe08[m feat: integrate MegaSelf launcher auth flow and refresh release artifacts
+[33m2400dad[m chore: remove debug snapshot
+[33m0861666[m FIX: all
+[33m600cb1b[m FIX: all
+[33m101cb3e[m FIX: платежки
+[33m24bb1b1[m FIX: универсальный API для лаунчера
+[33m706f63c[m update auth with login/password
+[33mecb0f37[m fix manifest API with error handling
+[33m46e3c0a[m force redeploy to fix APIs
+[33mcc5e87f[m add API and client jar
+[33me337499[m fix: standalone Firebase config in API
+[33m636d48f[m add HWID check API
+[33m62d9f98[m fix: change site title to Aura Client
+[33m68faea6[m add HWID reset button in dashboard
+[33m22e7815[m force redeploy
+[33m8a0b655[m fix: all files migrated to Realtime Database
+[33m1a832a8[m fix: restore correct App.tsx
+[33mcdb5d96[m fix: DashboardModal Realtime Database
+[33md6216d5[m switch to Realtime Database
+[33m371289b[m firestore initialized
+[33md8415cc[m add manual payment modal with details
+[33m699b360[m fix: google auth close modal and payment loading
+[33m674d6ab[m fix: dashboard loading states and payment error handling
+[33m1d80224[m add crypto-webhook
+[33m5fb33a5[m add full legal texts: offer, privacy, contacts
+[33m239f52d[m fix footer links
+[33m4ade8a6[m fix footer links
+[33m028af4c[m add full legal texts: offer, privacy, contacts
+[33mf38e8f5[m add react-router and legal pages
+[33m66aedd3[m update contacts: only email
+[33m324f485[m first commit
