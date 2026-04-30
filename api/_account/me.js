@@ -151,6 +151,15 @@ export default async function handler(req, res) {
     return methodNotAllowed(res);
   }
 
+  // Diagnostics: log available env vars (safe ones only)
+  console.log('[account/me] ENV CHECK:', {
+    hasWebApiKey: !!process.env.FIREBASE_WEB_API_KEY,
+    hasDatabaseUrl: !!process.env.FIREBASE_DATABASE_URL,
+    hasApiKey: !!process.env.FIREBASE_API_KEY,
+    nodeEnv: process.env.NODE_ENV,
+    vercelEnv: process.env.VERCEL_ENV
+  });
+
   try {
     // Verify the Firebase ID token
     console.log('[account/me] Starting auth verification...');

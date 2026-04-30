@@ -5,6 +5,8 @@ import App from './App';
 import Offer from './pages/Offer';
 import Privacy from './pages/Privacy';
 import Contacts from './pages/Contacts';
+import ActivateKey from './pages/ActivateKey';
+import AdminKeys from './pages/AdminKeys';
 import './index.css';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -17,6 +19,8 @@ createRoot(document.getElementById('root')!).render(
           <Route path="/offer" element={<Offer />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/contacts" element={<Contacts />} />
+          <Route path="/activate" element={<ActivateKey />} />
+          <Route path="/admin/keys" element={<AdminKeys />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

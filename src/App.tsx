@@ -85,6 +85,7 @@ export default function App() {
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-zinc-400">
             <a href="#features" className="hover:text-white transition-colors">Функции</a>
             <a href="#pricing" className="hover:text-white transition-colors">Тарифы</a>
+            <a href="/activate" className="hover:text-amber-400 transition-colors text-amber-500/80">Активировать ключ</a>
             <div className="flex items-center gap-3 pl-8 border-l border-white/10">
               <SocialIcon href="https://discord.gg/9XYURMb5" icon={<DiscordIcon />} hoverColor="hover:text-[#5865F2] hover:bg-[#5865F2]/10 hover:border-[#5865F2]/50" />
               <SocialIcon href="https://t.me/AuraClients" icon={<TelegramIcon />} hoverColor="hover:text-[#2AABEE] hover:bg-[#2AABEE]/10 hover:border-[#2AABEE]/50" />

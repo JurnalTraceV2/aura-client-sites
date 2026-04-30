@@ -224,3 +224,37 @@ export async function requestManualHwidReset() {
     remainingResetCredits: Number(payload.remainingResetCredits || 0)
   };
 }
+
+export async function validateKey(key: string) {
+  const response = await fetch('/api/keys/validate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ key: key.replace(/-/g, '') })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  return {
+    valid: payload.ok && payload.valid,
+    reason: payload.reason || null,
+    tier: payload.tier || null,
+    remainingActivations: payload.remainingActivations || 0
+  };
+}
+
+export async function activateKey(key: string) {
+  const response = await authorizedFetch('/api/keys/activate', {
+    method: 'POST',
+    body: JSON.stringify({ key: key.replace(/-/g, '') })
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.ok) {
+    throw new Error(getApiErrorMessage(payload, response));
+  }
+
+  return {
+    tier: String(payload.tier || ''),
+    expiresAt: Number(payload.expiresAt || 0),
+    message: String(payload.message || 'Key activated successfully')
+  };
+}
