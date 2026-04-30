@@ -5,9 +5,11 @@ import { methodNotAllowed, badRequest, unauthorized, forbidden, serverError } fr
 
 const ALLOWED_TIERS = ['1_month', '3_month', '6_month', '12_month', 'lifetime', 'beta'];
 
-async function isAdmin(uid) {
+const KEY_GENERATOR_ROLES = ['admin', 'youtuber'];
+
+async function canGenerateKeys(uid) {
   const user = await getUserByUid(uid);
-  return user?.role === 'admin';
+  return KEY_GENERATOR_ROLES.includes(user?.role);
 }
 
 export default async function handler(req, res) {
@@ -22,10 +24,10 @@ export default async function handler(req, res) {
       return unauthorized(res, auth.message || 'Unauthorized');
     }
 
-    // Check admin role
-    const userIsAdmin = await isAdmin(auth.uid);
-    if (!userIsAdmin) {
-      return forbidden(res, 'Admin access required');
+    // Check key generator role (admin or youtuber)
+    const hasAccess = await canGenerateKeys(auth.uid);
+    if (!hasAccess) {
+      return forbidden(res, 'Admin or Youtuber access required');
     }
 
     const body = req.body || {};

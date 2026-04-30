@@ -213,6 +213,7 @@ export default async function handler(req, res) {
       uid: auth.uid,
       username: user.username || auth.username || null,
       email: user.email || auth.email || null,
+      role: user.role || 'user',
       uidShort: user.uidShort || null,
       subscription: subState.plan,
       subscriptionExpiresAt: subState.expiresAt,

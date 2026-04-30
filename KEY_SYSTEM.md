@@ -13,7 +13,7 @@
 ## Страницы
 
 - `/activate` - Активация ключа пользователем
-- `/admin/keys` - Генерация ключей (только для админов)
+- `/admin/keys` - Генерация ключей (admin и youtuber)
 
 ## API Endpoints
 
@@ -46,7 +46,7 @@ Response:
 }
 ```
 
-### Генерация ключей (admin only)
+### Генерация ключей (admin / youtuber)
 ```
 POST /api/admin/generate-keys
 Headers: Authorization: Bearer <id_token>
@@ -115,9 +115,9 @@ node scripts/generate-keys.mjs -n 3 -t 12_month -o keys.txt
 }
 ```
 
-## Права администратора
+## Права доступа
 
-Для генерации ключей пользователь должен иметь `role: admin` в `/users/{uid}`.
+Для генерации ключей пользователь должен иметь `role: admin` или `role: youtuber` в `/users/{uid}`.
 
 ## Тарифы
 

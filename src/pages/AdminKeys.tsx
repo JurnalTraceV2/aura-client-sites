@@ -15,7 +15,7 @@ export default function AdminKeys() {
   const [durationDays, setDurationDays] = useState('');
   const [maxActivations, setMaxActivations] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [canGenerate, setCanGenerate] = useState(false);
   const [checkingAdmin, setCheckingAdmin] = useState(true);
   const [generatedKeys, setGeneratedKeys] = useState<GeneratedKey[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -47,7 +47,7 @@ export default function AdminKeys() {
     try {
       const user = auth.currentUser;
       if (!user) {
-        setIsAdmin(false);
+        setCanGenerate(false);
         setCheckingAdmin(false);
         return;
       }
@@ -58,9 +58,9 @@ export default function AdminKeys() {
       });
       
       const data = await res.json();
-      setIsAdmin(data.role === 'admin');
+      setCanGenerate(data.role === 'admin' || data.role === 'youtuber');
     } catch {
-      setIsAdmin(false);
+      setCanGenerate(false);
     } finally {
       setCheckingAdmin(false);
     }
@@ -139,13 +139,13 @@ export default function AdminKeys() {
     );
   }
 
-  if (!isAdmin) {
+  if (!canGenerate) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 flex items-center justify-center p-4">
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-red-500/30 p-8 text-center max-w-md">
           <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">Доступ запрещен</h1>
-          <p className="text-slate-400">У вас нет прав администратора для генерации ключей.</p>
+          <p className="text-slate-400">Генерация ключей доступна только для ролей Admin и Youtuber.</p>
         </div>
       </div>
     );
