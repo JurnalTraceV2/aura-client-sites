@@ -47,7 +47,12 @@ async function rtdbPut(path, data, idToken) {
   }
 }
 
-const DEFAULT_LIMITS = { admin: -1, youtuber: 50, youtube: 50 };
+const DEFAULT_LIMITS = { admin: -1, youtuber: 2, youtube: 2 };
+
+const ROLE_RESTRICTIONS = {
+  youtuber: { maxDurationDays: 3, forceDurationDays: 3 },
+  youtube: { maxDurationDays: 3, forceDurationDays: 3 }
+};
 
 async function getKeyLimitsViaRest(idToken) {
   const stored = await rtdbGet('config/keyLimits', idToken);
@@ -99,8 +104,18 @@ export default async function handler(req, res) {
     }
 
     const keyCount = Math.min(Math.max(1, Number(count) || 1), 100);
-    const keyDuration = durationDays ? Math.min(Number(durationDays), 365 * 5) : null;
     const activations = Math.min(Math.max(1, Number(maxActivations) || 1), 10);
+
+    // Apply role-based restrictions
+    const restrictions = ROLE_RESTRICTIONS[userRole];
+    let keyDuration;
+    if (restrictions?.forceDurationDays) {
+      keyDuration = restrictions.forceDurationDays;
+    } else if (durationDays) {
+      keyDuration = Math.min(Number(durationDays), 365 * 5);
+    } else {
+      keyDuration = null;
+    }
 
     // Check weekly limits via REST
     const limits = await getKeyLimitsViaRest(idToken);

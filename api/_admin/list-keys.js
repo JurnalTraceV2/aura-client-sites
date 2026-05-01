@@ -48,6 +48,7 @@ export default async function handler(req, res) {
     }
 
     const keys = Object.values(keysData)
+      .filter(k => k.metadata?.generatedBy === auth.uid)
       .map(k => ({
         key: k.keyId,
         tier: k.tier,

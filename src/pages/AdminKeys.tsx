@@ -528,7 +528,7 @@ export default function AdminKeys() {
                 className="flex items-center gap-2 text-lg font-semibold text-white hover:text-amber-400 transition-colors"
               >
                 <List className="w-5 h-5" />
-                Все ключи {allKeys.length > 0 && `(${allKeys.length})`}
+                Мои ключи {allKeys.length > 0 && `(${allKeys.length})`}
               </button>
               {showAllKeys && (
                 <button

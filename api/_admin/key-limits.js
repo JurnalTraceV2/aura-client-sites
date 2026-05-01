@@ -6,8 +6,8 @@ const CONFIGURABLE_ROLES = ['admin', 'youtuber', 'youtube'];
 
 const DEFAULT_LIMITS = {
   admin: -1,
-  youtuber: 50,
-  youtube: 50
+  youtuber: 2,
+  youtube: 2
 };
 
 const DATABASE_URL = String(
