@@ -1,17 +1,72 @@
-import { generateKey, generateKeysBatch } from '../_lib/keys.js';
+import { generateKeysBatch } from '../_lib/keys.js';
 import { verifyRequestAuth } from '../_lib/auth.js';
-import { getUserByUid } from '../_lib/license.js';
-import { methodNotAllowed, badRequest, unauthorized, forbidden, serverError } from '../_lib/http.js';
-import { getKeyLimits, getUserWeeklyUsage, incrementUsage } from './key-limits.js';
+import { methodNotAllowed, badRequest, unauthorized, forbidden, serverError, extractBearerToken } from '../_lib/http.js';
 
 const ALLOWED_TIERS = ['1_month', '3_month', '6_month', '12_month', 'lifetime', 'beta'];
-
 const KEY_GENERATOR_ROLES = ['admin', 'youtuber', 'youtube'];
 
-async function canGenerateKeys(uid) {
-  const user = await getUserByUid(uid);
-  const role = (user?.role || '').toLowerCase();
-  return KEY_GENERATOR_ROLES.includes(role);
+const DATABASE_URL = String(
+  process.env.FIREBASE_DATABASE_URL ||
+  'https://gen-lang-client-0640974949-default-rtdb.firebaseio.com'
+).replace(/\/$/, '');
+
+async function rtdbGet(path, idToken) {
+  try {
+    const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json().catch(() => null);
+  } catch {
+    return null;
+  }
+}
+
+async function rtdbPatch(path, data, idToken) {
+  try {
+    const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`;
+    await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch (err) {
+    console.warn('rtdbPatch failed:', err?.message);
+  }
+}
+
+async function rtdbPut(path, data, idToken) {
+  try {
+    const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`;
+    await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch (err) {
+    console.warn('rtdbPut failed:', err?.message);
+  }
+}
+
+const DEFAULT_LIMITS = { admin: -1, youtuber: 50, youtube: 50 };
+
+async function getKeyLimitsViaRest(idToken) {
+  const stored = await rtdbGet('config/keyLimits', idToken);
+  if (!stored) return { ...DEFAULT_LIMITS };
+  const limits = {};
+  for (const role of Object.keys(DEFAULT_LIMITS)) {
+    limits[role] = stored[role] !== undefined ? Number(stored[role]) : DEFAULT_LIMITS[role];
+  }
+  return limits;
+}
+
+async function getWeeklyUsageViaRest(uid, idToken) {
+  const data = await rtdbGet(`keyGenerationLog/${uid}`, idToken);
+  if (!data) return { weekStart: 0, count: 0 };
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  if (!data.weekStart || Date.now() - data.weekStart > weekMs) {
+    return { weekStart: 0, count: 0 };
+  }
+  return { weekStart: data.weekStart, count: Number(data.count || 0) };
 }
 
 export default async function handler(req, res) {
@@ -20,28 +75,25 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Verify authentication
     const auth = await verifyRequestAuth(req);
     if (!auth.ok) {
       return unauthorized(res, auth.message || 'Unauthorized');
     }
 
-    // Check key generator role (admin or youtuber)
-    const hasAccess = await canGenerateKeys(auth.uid);
-    if (!hasAccess) {
-      return forbidden(res, 'Admin, Youtuber or Youtube access required');
+    const idToken = extractBearerToken(req);
+
+    // Read user role via REST API with user's token
+    const userData = await rtdbGet(`users/${auth.uid}`, idToken);
+    const userRole = (userData?.role || '').toLowerCase();
+    console.log('[generate-keys] uid:', auth.uid, 'role:', userRole);
+
+    if (!KEY_GENERATOR_ROLES.includes(userRole)) {
+      return forbidden(res, `Access denied. Your role: "${userData?.role || 'user'}". Required: admin, youtuber, or youtube.`);
     }
 
     const body = req.body || {};
-    const { 
-      count = 1, 
-      tier, 
-      durationDays, 
-      maxActivations = 1,
-      metadata = {} 
-    } = body;
+    const { count = 1, tier, durationDays, maxActivations = 1, metadata = {} } = body;
 
-    // Validation
     if (!tier || !ALLOWED_TIERS.includes(tier)) {
       return badRequest(res, `Invalid tier. Allowed: ${ALLOWED_TIERS.join(', ')}`);
     }
@@ -50,14 +102,12 @@ export default async function handler(req, res) {
     const keyDuration = durationDays ? Math.min(Number(durationDays), 365 * 5) : null;
     const activations = Math.min(Math.max(1, Number(maxActivations) || 1), 10);
 
-    // Check weekly limits
-    const user = await getUserByUid(auth.uid);
-    const userRole = (user?.role || '').toLowerCase();
-    const limits = await getKeyLimits();
+    // Check weekly limits via REST
+    const limits = await getKeyLimitsViaRest(idToken);
     const weeklyLimit = limits[userRole] ?? 50;
 
     if (weeklyLimit !== -1) {
-      const usage = await getUserWeeklyUsage(auth.uid);
+      const usage = await getWeeklyUsageViaRest(auth.uid, idToken);
       const remaining = weeklyLimit - usage.count;
       if (remaining <= 0) {
         return res.status(429).json({
@@ -78,7 +128,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // Generate keys
+    // Generate keys (keys/ path is publicly writable)
     const keys = await generateKeysBatch({
       count: keyCount,
       tier,
@@ -91,9 +141,14 @@ export default async function handler(req, res) {
       }
     });
 
-    // Track usage
+    // Track usage via REST
     if (weeklyLimit !== -1) {
-      await incrementUsage(auth.uid, keys.length);
+      const usage = await getWeeklyUsageViaRest(auth.uid, idToken);
+      await rtdbPut(`keyGenerationLog/${auth.uid}`, {
+        weekStart: usage.weekStart || Date.now(),
+        count: usage.count + keys.length,
+        lastGeneratedAt: Date.now()
+      }, idToken);
     }
 
     return res.status(200).json({

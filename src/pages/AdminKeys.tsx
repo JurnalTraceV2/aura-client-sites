@@ -1,5 +1,5 @@
 import React, { useState, useEffect, type FormEvent } from 'react';
-import { Key, Plus, Copy, Check, AlertCircle, Loader2, Download, Settings, Save } from 'lucide-react';
+import { Key, Plus, Copy, Check, AlertCircle, Loader2, Download, Settings, Save, List, RefreshCw } from 'lucide-react';
 import { auth, db } from '../firebase.ts';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref, get } from 'firebase/database';
@@ -37,6 +37,10 @@ export default function AdminKeys() {
   const [limitsSuccess, setLimitsSuccess] = useState('');
   const [showLimitsPanel, setShowLimitsPanel] = useState(false);
   const [debugInfo, setDebugInfo] = useState('');
+  const [allKeys, setAllKeys] = useState<any[]>([]);
+  const [loadingAllKeys, setLoadingAllKeys] = useState(false);
+  const [showAllKeys, setShowAllKeys] = useState(false);
+  const [copiedAllIndex, setCopiedAllIndex] = useState<number | null>(null);
 
   const tiers = [
     { value: '1_month', label: '1 месяц', defaultDuration: 30 },
@@ -46,6 +50,32 @@ export default function AdminKeys() {
     { value: 'lifetime', label: 'Навсегда', defaultDuration: 0 },
     { value: 'beta', label: 'Бета доступ', defaultDuration: 0 }
   ];
+
+  const fetchAllKeys = async () => {
+    setLoadingAllKeys(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+      const idToken = await user.getIdToken();
+      const res = await fetch('/api/admin/list-keys', {
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setAllKeys(data.keys || []);
+      }
+    } catch {
+      // non-fatal
+    } finally {
+      setLoadingAllKeys(false);
+    }
+  };
+
+  const copyAllKey = (key: string, index: number) => {
+    navigator.clipboard.writeText(key);
+    setCopiedAllIndex(index);
+    setTimeout(() => setCopiedAllIndex(null), 2000);
+  };
 
   const fetchLimits = async () => {
     try {
@@ -487,6 +517,99 @@ export default function AdminKeys() {
               </div>
             </div>
           )}
+          {/* All keys section */}
+          <div className="border-t border-slate-700 pt-6 mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => {
+                  setShowAllKeys(!showAllKeys);
+                  if (!showAllKeys && allKeys.length === 0) fetchAllKeys();
+                }}
+                className="flex items-center gap-2 text-lg font-semibold text-white hover:text-amber-400 transition-colors"
+              >
+                <List className="w-5 h-5" />
+                Все ключи {allKeys.length > 0 && `(${allKeys.length})`}
+              </button>
+              {showAllKeys && (
+                <button
+                  onClick={fetchAllKeys}
+                  disabled={loadingAllKeys}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm transition-colors"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingAllKeys ? 'animate-spin' : ''}`} />
+                  Обновить
+                </button>
+              )}
+            </div>
+
+            {showAllKeys && (
+              <div>
+                {loadingAllKeys && allKeys.length === 0 ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+                  </div>
+                ) : allKeys.length === 0 ? (
+                  <p className="text-slate-400 text-center py-4">Ключей пока нет</p>
+                ) : (
+                  <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                    {allKeys.map((k, index) => (
+                      <div
+                        key={k.key}
+                        className="flex items-center justify-between bg-slate-900/50 rounded-xl p-4 border border-slate-700"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-3">
+                            <code className="text-amber-400 font-mono">{k.key}</code>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                              k.status === 'active' ? 'bg-green-500/20 text-green-400' :
+                              k.status === 'used' ? 'bg-blue-500/20 text-blue-400' :
+                              'bg-red-500/20 text-red-400'
+                            }`}>
+                              {k.status}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500 flex-wrap">
+                            <span>{tiers.find(t => t.value === k.tier)?.label || k.tier}</span>
+                            <span>•</span>
+                            <span>{k.currentActivations}/{k.maxActivations} акт.</span>
+                            {k.expiresAt && (
+                              <>
+                                <span>•</span>
+                                <span>до {new Date(k.expiresAt).toLocaleDateString()}</span>
+                              </>
+                            )}
+                            {k.createdAt && (
+                              <>
+                                <span>•</span>
+                                <span>{new Date(k.createdAt).toLocaleDateString()}</span>
+                              </>
+                            )}
+                            {k.generatedBy && (
+                              <>
+                                <span>•</span>
+                                <span className="text-slate-600">{k.generatedBy}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => copyAllKey(k.key, index)}
+                          className="p-2 hover:bg-slate-700 rounded-lg transition-colors flex-shrink-0 ml-2"
+                          title="Копировать"
+                        >
+                          {copiedAllIndex === index ? (
+                            <Check className="w-4 h-4 text-green-400" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-slate-400" />
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

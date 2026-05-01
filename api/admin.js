@@ -1,6 +1,7 @@
 import generateKeysHandler from './_admin/generate-keys.js';
 import keyLimitsHandler from './_admin/key-limits.js';
 import bootstrapAdminHandler from './_admin/bootstrap-admin.js';
+import listKeysHandler from './_admin/list-keys.js';
 
 function getPathname(req) {
   try {
@@ -23,6 +24,10 @@ export default async function handler(req, res) {
 
   if (pathname.includes('/bootstrap-admin')) {
     return bootstrapAdminHandler(req, res);
+  }
+
+  if (pathname.includes('/list-keys')) {
+    return listKeysHandler(req, res);
   }
 
   return res.status(404).json({

@@ -1,8 +1,5 @@
 import { verifyRequestAuth } from '../_lib/auth.js';
-import { getUserByUid } from '../_lib/license.js';
-import { methodNotAllowed, badRequest, unauthorized, forbidden, serverError } from '../_lib/http.js';
-import { get, ref, set } from 'firebase/database';
-import { db } from '../_lib/firebase.js';
+import { methodNotAllowed, badRequest, unauthorized, forbidden, serverError, extractBearerToken } from '../_lib/http.js';
 
 const KEY_GENERATOR_ROLES = ['admin', 'youtuber', 'youtube'];
 const CONFIGURABLE_ROLES = ['admin', 'youtuber', 'youtube'];
@@ -13,64 +10,33 @@ const DEFAULT_LIMITS = {
   youtube: 50
 };
 
-export async function getKeyLimits() {
+const DATABASE_URL = String(
+  process.env.FIREBASE_DATABASE_URL ||
+  'https://gen-lang-client-0640974949-default-rtdb.firebaseio.com'
+).replace(/\/$/, '');
+
+async function rtdbGet(path, idToken) {
   try {
-    const snapshot = await get(ref(db, 'config/keyLimits'));
-    if (!snapshot.exists()) {
-      return { ...DEFAULT_LIMITS };
-    }
-    const stored = snapshot.val() || {};
-    const limits = {};
-    for (const role of CONFIGURABLE_ROLES) {
-      limits[role] = stored[role] !== undefined ? Number(stored[role]) : (DEFAULT_LIMITS[role] ?? 50);
-    }
-    return limits;
-  } catch (err) {
-    console.error('getKeyLimits error:', err?.message);
-    return { ...DEFAULT_LIMITS };
+    const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    return await res.json().catch(() => null);
+  } catch {
+    return null;
   }
 }
 
-export async function getUserWeeklyUsage(uid) {
+async function rtdbPut(path, data, idToken) {
   try {
-    const snapshot = await get(ref(db, `keyGenerationLog/${uid}`));
-    if (!snapshot.exists()) {
-      return { weekStart: 0, count: 0 };
-    }
-    const data = snapshot.val() || {};
-    const now = Date.now();
-    const weekMs = 7 * 24 * 60 * 60 * 1000;
-
-    if (!data.weekStart || now - data.weekStart > weekMs) {
-      return { weekStart: 0, count: 0 };
-    }
-
-    return {
-      weekStart: data.weekStart,
-      count: Number(data.count || 0)
-    };
+    const url = `${DATABASE_URL}/${path}.json?auth=${encodeURIComponent(idToken)}`;
+    await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
   } catch (err) {
-    console.error('getUserWeeklyUsage error:', err?.message);
-    return { weekStart: 0, count: 0 };
+    console.warn('rtdbPut failed:', err?.message);
   }
-}
-
-export async function incrementUsage(uid, generatedCount) {
-  const usage = await getUserWeeklyUsage(uid);
-  const now = Date.now();
-
-  const newData = {
-    weekStart: usage.weekStart || now,
-    count: usage.count + generatedCount,
-    lastGeneratedAt: now
-  };
-
-  if (!usage.weekStart) {
-    newData.weekStart = now;
-  }
-
-  await set(ref(db, `keyGenerationLog/${uid}`), newData);
-  return newData;
 }
 
 export default async function handler(req, res) {
@@ -80,16 +46,32 @@ export default async function handler(req, res) {
       return unauthorized(res, auth.message || 'Unauthorized');
     }
 
-    const user = await getUserByUid(auth.uid);
-    const role = (user?.role || '').toLowerCase();
+    const idToken = extractBearerToken(req);
+
+    // Read user role via REST API
+    const userData = await rtdbGet(`users/${auth.uid}`, idToken);
+    const role = (userData?.role || '').toLowerCase();
 
     if (!KEY_GENERATOR_ROLES.includes(role)) {
       return forbidden(res, 'Access denied');
     }
 
     if (req.method === 'GET') {
-      const limits = await getKeyLimits();
-      const usage = await getUserWeeklyUsage(auth.uid);
+      const stored = await rtdbGet('config/keyLimits', idToken);
+      const limits = {};
+      for (const r of CONFIGURABLE_ROLES) {
+        limits[r] = stored?.[r] !== undefined ? Number(stored[r]) : (DEFAULT_LIMITS[r] ?? 50);
+      }
+
+      const usageData = await rtdbGet(`keyGenerationLog/${auth.uid}`, idToken);
+      let usageCount = 0;
+      if (usageData) {
+        const weekMs = 7 * 24 * 60 * 60 * 1000;
+        if (usageData.weekStart && Date.now() - usageData.weekStart <= weekMs) {
+          usageCount = Number(usageData.count || 0);
+        }
+      }
+
       const myLimit = limits[role] ?? 50;
 
       return res.status(200).json({
@@ -97,8 +79,8 @@ export default async function handler(req, res) {
         limits,
         myRole: role,
         myLimit,
-        myUsage: usage.count,
-        myRemaining: myLimit === -1 ? -1 : Math.max(0, myLimit - usage.count),
+        myUsage: usageCount,
+        myRemaining: myLimit === -1 ? -1 : Math.max(0, myLimit - usageCount),
         canSetLimits: role === 'admin'
       });
     }
@@ -125,10 +107,14 @@ export default async function handler(req, res) {
         return badRequest(res, 'No limits provided');
       }
 
-      const currentLimits = await getKeyLimits();
+      const stored = await rtdbGet('config/keyLimits', idToken);
+      const currentLimits = {};
+      for (const r of CONFIGURABLE_ROLES) {
+        currentLimits[r] = stored?.[r] !== undefined ? Number(stored[r]) : (DEFAULT_LIMITS[r] ?? 50);
+      }
       const merged = { ...currentLimits, ...newLimits };
 
-      await set(ref(db, 'config/keyLimits'), merged);
+      await rtdbPut('config/keyLimits', merged, idToken);
 
       return res.status(200).json({
         ok: true,
