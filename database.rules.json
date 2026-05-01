@@ -1,0 +1,52 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "entitlements": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "userPayments": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "keys": {
+      ".read": true,
+      ".write": true
+    },
+    "keyGenerationLog": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "config": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "sessions": {
+      ".read": true,
+      ".write": true
+    },
+    "meta": {
+      ".read": true,
+      ".write": true
+    },
+    "audit": {
+      ".read": false,
+      ".write": true
+    },
+    "revocations": {
+      ".read": true,
+      ".write": false
+    }
+  }
+}

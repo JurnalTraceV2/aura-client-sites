@@ -36,6 +36,7 @@ export default function AdminKeys() {
   const [savingLimits, setSavingLimits] = useState(false);
   const [limitsSuccess, setLimitsSuccess] = useState('');
   const [showLimitsPanel, setShowLimitsPanel] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
 
   const tiers = [
     { value: '1_month', label: '1 месяц', defaultDuration: 30 },
@@ -81,6 +82,7 @@ export default function AdminKeys() {
 
       console.log('[AdminKeys] User found:', user.uid, user.email);
       let hasAccess = false;
+      let dbg = `UID: ${user.uid}\nEmail: ${user.email}\n`;
 
       // Method 1: Try API
       try {
@@ -89,10 +91,12 @@ export default function AdminKeys() {
           headers: { 'Authorization': `Bearer ${idToken}` }
         });
         const data = await res.json();
-        console.log('[AdminKeys] /api/account/me response:', { ok: data.ok, role: data.role });
+        dbg += `API ok: ${data.ok}, role: "${data.role}", status: ${res.status}\n`;
+        console.log('[AdminKeys] /api/account/me response:', JSON.stringify({ ok: data.ok, role: data.role, uid: data.uid }));
         const role = (data.role || '').toLowerCase();
         hasAccess = ALLOWED_ROLES.includes(role);
-      } catch (err) {
+      } catch (err: any) {
+        dbg += `API error: ${err?.message}\n`;
         console.warn('[AdminKeys] API check failed:', err);
       }
 
@@ -101,13 +105,17 @@ export default function AdminKeys() {
         try {
           const snapshot = await get(ref(db, `users/${user.uid}/role`));
           const dbRole = (snapshot.val() || '').toString().toLowerCase();
+          dbg += `RTDB role: "${dbRole}"\n`;
           console.log('[AdminKeys] Direct RTDB role:', dbRole);
           hasAccess = ALLOWED_ROLES.includes(dbRole);
-        } catch (err) {
+        } catch (err: any) {
+          dbg += `RTDB error: ${err?.message}\n`;
           console.warn('[AdminKeys] Direct RTDB read failed:', err);
         }
       }
 
+      dbg += `hasAccess: ${hasAccess}`;
+      setDebugInfo(dbg);
       console.log('[AdminKeys] hasAccess:', hasAccess);
       setCanGenerate(hasAccess);
       if (hasAccess) {
@@ -245,7 +253,10 @@ export default function AdminKeys() {
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-red-500/30 p-8 text-center max-w-md">
           <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">Доступ запрещен</h1>
-          <p className="text-slate-400">Генерация ключей доступна только для ролей Admin, Youtuber и Youtube.</p>
+          <p className="text-slate-400 mb-4">Генерация ключей доступна только для ролей Admin, Youtuber и Youtube.</p>
+          {debugInfo && (
+            <pre className="text-left text-xs text-slate-500 bg-slate-900 rounded-lg p-3 mt-4 whitespace-pre-wrap">{debugInfo}</pre>
+          )}
         </div>
       </div>
     );
