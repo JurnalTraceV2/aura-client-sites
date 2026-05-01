@@ -47,6 +47,7 @@
     { "source": "/api/launcher/:path*", "destination": "/api/launcher.js" },
     { "source": "/api/client/:path*", "destination": "/api/client.js" },
     { "source": "/api/keys/:path*", "destination": "/api/keys.js" },
+    { "source": "/api/admin/key-limits", "destination": "/api/admin.js" },
     { "source": "/api/admin/:path*", "destination": "/api/admin.js" },
     { "source": "/api/download/artifact", "destination": "/api/download-artifact.js" },
     { "source": "/downloads/(.*)", "destination": "/api/download-artifact.js?type=$1" },

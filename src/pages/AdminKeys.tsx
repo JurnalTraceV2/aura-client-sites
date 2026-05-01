@@ -1,12 +1,22 @@
 import React, { useState, useEffect, type FormEvent } from 'react';
-import { Key, Plus, Copy, Check, AlertCircle, Loader2, Download } from 'lucide-react';
+import { Key, Plus, Copy, Check, AlertCircle, Loader2, Download, Settings, Save } from 'lucide-react';
 import { auth } from '../firebase.ts';
+import { onAuthStateChanged } from 'firebase/auth';
 
 interface GeneratedKey {
   key: string;
   tier: string;
   expiresAt: number | null;
   maxActivations: number;
+}
+
+interface LimitsData {
+  limits: Record<string, number>;
+  myRole: string;
+  myLimit: number;
+  myUsage: number;
+  myRemaining: number;
+  canSetLimits: boolean;
 }
 
 export default function AdminKeys() {
@@ -20,6 +30,11 @@ export default function AdminKeys() {
   const [generatedKeys, setGeneratedKeys] = useState<GeneratedKey[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const [limitsData, setLimitsData] = useState<LimitsData | null>(null);
+  const [editLimits, setEditLimits] = useState<Record<string, string>>({});
+  const [savingLimits, setSavingLimits] = useState(false);
+  const [limitsSuccess, setLimitsSuccess] = useState('');
+  const [showLimitsPanel, setShowLimitsPanel] = useState(false);
 
   const tiers = [
     { value: '1_month', label: '1 месяц', defaultDuration: 30 },
@@ -30,8 +45,57 @@ export default function AdminKeys() {
     { value: 'beta', label: 'Бета доступ', defaultDuration: 0 }
   ];
 
+  const fetchLimits = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+      const idToken = await user.getIdToken();
+      const res = await fetch('/api/admin/key-limits', {
+        headers: { 'Authorization': `Bearer ${idToken}` }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setLimitsData(data);
+        setEditLimits({
+          admin: String(data.limits.admin ?? -1),
+          youtuber: String(data.limits.youtuber ?? 50),
+          youtube: String(data.limits.youtube ?? 50)
+        });
+      }
+    } catch {
+      // non-fatal
+    }
+  };
+
   useEffect(() => {
-    checkAdminStatus();
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setCanGenerate(false);
+        setCheckingAdmin(false);
+        return;
+      }
+
+      try {
+        const idToken = await user.getIdToken();
+        const res = await fetch('/api/account/me', {
+          headers: { 'Authorization': `Bearer ${idToken}` }
+        });
+
+        const data = await res.json();
+        const role = (data.role || '').toLowerCase();
+        const hasAccess = role === 'admin' || role === 'youtuber' || role === 'youtube';
+        setCanGenerate(hasAccess);
+        if (hasAccess) {
+          fetchLimits();
+        }
+      } catch {
+        setCanGenerate(false);
+      } finally {
+        setCheckingAdmin(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -42,29 +106,6 @@ export default function AdminKeys() {
       setDurationDays('');
     }
   }, [tier]);
-
-  const checkAdminStatus = async () => {
-    try {
-      const user = auth.currentUser;
-      if (!user) {
-        setCanGenerate(false);
-        setCheckingAdmin(false);
-        return;
-      }
-
-      const idToken = await user.getIdToken();
-      const res = await fetch('/api/account/me', {
-        headers: { 'Authorization': `Bearer ${idToken}` }
-      });
-      
-      const data = await res.json();
-      setCanGenerate(data.role === 'admin' || data.role === 'youtuber' || data.role === 'youtube');
-    } catch {
-      setCanGenerate(false);
-    } finally {
-      setCheckingAdmin(false);
-    }
-  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -99,6 +140,7 @@ export default function AdminKeys() {
 
       if (data.ok) {
         setGeneratedKeys(data.keys);
+        fetchLimits();
       } else {
         setError(data.error || 'Ошибка генерации ключей');
       }
@@ -113,6 +155,43 @@ export default function AdminKeys() {
     navigator.clipboard.writeText(key);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const saveLimitsHandler = async () => {
+    setSavingLimits(true);
+    setLimitsSuccess('');
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+      const idToken = await user.getIdToken();
+
+      const body: Record<string, number> = {};
+      for (const [role, val] of Object.entries(editLimits)) {
+        body[role] = parseInt(String(val)) || 0;
+      }
+
+      const res = await fetch('/api/admin/key-limits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`
+        },
+        body: JSON.stringify(body)
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        setLimitsSuccess('Лимиты сохранены');
+        fetchLimits();
+        setTimeout(() => setLimitsSuccess(''), 3000);
+      } else {
+        setError(data.error || 'Ошибка сохранения лимитов');
+      }
+    } catch {
+      setError('Ошибка сети');
+    } finally {
+      setSavingLimits(false);
+    }
   };
 
   const downloadKeys = () => {
@@ -155,15 +234,89 @@ export default function AdminKeys() {
     <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800 p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-slate-700 p-6 md:p-8 shadow-2xl">
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
-              <Key className="w-6 h-6 text-white" />
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl flex items-center justify-center">
+                <Key className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">Генератор ключей</h1>
+                <p className="text-slate-400">Создание лицензионных ключей для пользователей</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-white">Генератор ключей</h1>
-              <p className="text-slate-400">Создание лицензионных ключей для пользователей</p>
-            </div>
+            {limitsData?.canSetLimits && (
+              <button
+                onClick={() => setShowLimitsPanel(!showLimitsPanel)}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm transition-colors"
+              >
+                <Settings className="w-4 h-4" />
+                Лимиты
+              </button>
+            )}
           </div>
+
+          {limitsData && (
+            <div className="mb-6 p-4 bg-slate-900/50 rounded-xl border border-slate-700">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-slate-400">
+                  Роль: <span className="text-amber-400 font-medium">{limitsData.myRole}</span>
+                </div>
+                <div className="text-sm">
+                  {limitsData.myLimit === -1 ? (
+                    <span className="text-green-400">Безлимит</span>
+                  ) : (
+                    <span className="text-slate-300">
+                      Использовано: <span className="text-amber-400 font-medium">{limitsData.myUsage}</span> / <span className="text-white font-medium">{limitsData.myLimit}</span> за неделю
+                      {' '}(осталось: <span className={limitsData.myRemaining > 0 ? 'text-green-400' : 'text-red-400'}>{limitsData.myRemaining}</span>)
+                    </span>
+                  )}
+                </div>
+              </div>
+              {limitsData.myLimit !== -1 && (
+                <div className="mt-2 w-full bg-slate-800 rounded-full h-2">
+                  <div
+                    className="h-2 rounded-full transition-all bg-gradient-to-r from-amber-500 to-orange-600"
+                    style={{ width: `${Math.min(100, (limitsData.myUsage / limitsData.myLimit) * 100)}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {showLimitsPanel && limitsData?.canSetLimits && (
+            <div className="mb-6 p-6 bg-slate-900/70 rounded-xl border border-amber-500/30">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Settings className="w-5 h-5 text-amber-400" />
+                Настройка лимитов (ключей/неделя)
+              </h3>
+              <p className="text-sm text-slate-400 mb-4">Используйте -1 для безлимита</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                {(['admin', 'youtuber', 'youtube'] as const).map(role => (
+                  <div key={role}>
+                    <label className="block text-sm font-medium text-slate-300 mb-1 capitalize">{role}</label>
+                    <input
+                      type="number"
+                      min={-1}
+                      value={editLimits[role] || ''}
+                      onChange={(e) => setEditLimits(prev => ({ ...prev, [role]: e.target.value }))}
+                      className="w-full bg-slate-800 border border-slate-600 rounded-lg py-2 px-3 text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={saveLimitsHandler}
+                  disabled={savingLimits}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-600 rounded-lg text-white text-sm font-medium transition-colors"
+                >
+                  {savingLimits ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Сохранить
+                </button>
+                {limitsSuccess && <span className="text-green-400 text-sm">{limitsSuccess}</span>}
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div>

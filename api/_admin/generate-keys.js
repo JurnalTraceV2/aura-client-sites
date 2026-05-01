@@ -2,6 +2,7 @@ import { generateKey, generateKeysBatch } from '../_lib/keys.js';
 import { verifyRequestAuth } from '../_lib/auth.js';
 import { getUserByUid } from '../_lib/license.js';
 import { methodNotAllowed, badRequest, unauthorized, forbidden, serverError } from '../_lib/http.js';
+import { getKeyLimits, getUserWeeklyUsage, incrementUsage } from './key-limits.js';
 
 const ALLOWED_TIERS = ['1_month', '3_month', '6_month', '12_month', 'lifetime', 'beta'];
 
@@ -9,7 +10,8 @@ const KEY_GENERATOR_ROLES = ['admin', 'youtuber', 'youtube'];
 
 async function canGenerateKeys(uid) {
   const user = await getUserByUid(uid);
-  return KEY_GENERATOR_ROLES.includes(user?.role);
+  const role = (user?.role || '').toLowerCase();
+  return KEY_GENERATOR_ROLES.includes(role);
 }
 
 export default async function handler(req, res) {
@@ -48,6 +50,34 @@ export default async function handler(req, res) {
     const keyDuration = durationDays ? Math.min(Number(durationDays), 365 * 5) : null;
     const activations = Math.min(Math.max(1, Number(maxActivations) || 1), 10);
 
+    // Check weekly limits
+    const user = await getUserByUid(auth.uid);
+    const userRole = (user?.role || '').toLowerCase();
+    const limits = await getKeyLimits();
+    const weeklyLimit = limits[userRole] ?? 50;
+
+    if (weeklyLimit !== -1) {
+      const usage = await getUserWeeklyUsage(auth.uid);
+      const remaining = weeklyLimit - usage.count;
+      if (remaining <= 0) {
+        return res.status(429).json({
+          ok: false,
+          error: `Недельный лимит исчерпан (${weeklyLimit} ключей/неделя). Попробуйте позже.`,
+          limit: weeklyLimit,
+          used: usage.count
+        });
+      }
+      if (keyCount > remaining) {
+        return res.status(429).json({
+          ok: false,
+          error: `Осталось ${remaining} ключей из ${weeklyLimit} на эту неделю.`,
+          limit: weeklyLimit,
+          used: usage.count,
+          remaining
+        });
+      }
+    }
+
     // Generate keys
     const keys = await generateKeysBatch({
       count: keyCount,
@@ -60,6 +90,11 @@ export default async function handler(req, res) {
         generatedByEmail: auth.email
       }
     });
+
+    // Track usage
+    if (weeklyLimit !== -1) {
+      await incrementUsage(auth.uid, keys.length);
+    }
 
     return res.status(200).json({
       ok: true,

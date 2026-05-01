@@ -1,4 +1,5 @@
 import generateKeysHandler from './_admin/generate-keys.js';
+import keyLimitsHandler from './_admin/key-limits.js';
 
 function getPathname(req) {
   try {
@@ -13,6 +14,10 @@ export default async function handler(req, res) {
 
   if (pathname.includes('/generate-keys')) {
     return generateKeysHandler(req, res);
+  }
+
+  if (pathname.includes('/key-limits')) {
+    return keyLimitsHandler(req, res);
   }
 
   return res.status(404).json({
