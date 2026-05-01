@@ -5,7 +5,7 @@ import { methodNotAllowed, badRequest, unauthorized, forbidden, serverError } fr
 
 const ALLOWED_TIERS = ['1_month', '3_month', '6_month', '12_month', 'lifetime', 'beta'];
 
-const KEY_GENERATOR_ROLES = ['admin', 'youtuber'];
+const KEY_GENERATOR_ROLES = ['admin', 'youtuber', 'youtube'];
 
 async function canGenerateKeys(uid) {
   const user = await getUserByUid(uid);
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     // Check key generator role (admin or youtuber)
     const hasAccess = await canGenerateKeys(auth.uid);
     if (!hasAccess) {
-      return forbidden(res, 'Admin or Youtuber access required');
+      return forbidden(res, 'Admin, Youtuber or Youtube access required');
     }
 
     const body = req.body || {};

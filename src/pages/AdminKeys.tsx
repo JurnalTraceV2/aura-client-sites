@@ -58,7 +58,7 @@ export default function AdminKeys() {
       });
       
       const data = await res.json();
-      setCanGenerate(data.role === 'admin' || data.role === 'youtuber');
+      setCanGenerate(data.role === 'admin' || data.role === 'youtuber' || data.role === 'youtube');
     } catch {
       setCanGenerate(false);
     } finally {
@@ -145,7 +145,7 @@ export default function AdminKeys() {
         <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl border border-red-500/30 p-8 text-center max-w-md">
           <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">Доступ запрещен</h1>
-          <p className="text-slate-400">Генерация ключей доступна только для ролей Admin и Youtuber.</p>
+          <p className="text-slate-400">Генерация ключей доступна только для ролей Admin, Youtuber и Youtube.</p>
         </div>
       </div>
     );
