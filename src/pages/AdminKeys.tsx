@@ -1,7 +1,8 @@
 import React, { useState, useEffect, type FormEvent } from 'react';
 import { Key, Plus, Copy, Check, AlertCircle, Loader2, Download, Settings, Save } from 'lucide-react';
-import { auth } from '../firebase.ts';
+import { auth, db } from '../firebase.ts';
 import { onAuthStateChanged } from 'firebase/auth';
+import { ref, get } from 'firebase/database';
 
 interface GeneratedKey {
   key: string;
@@ -68,31 +69,51 @@ export default function AdminKeys() {
   };
 
   useEffect(() => {
+    const ALLOWED_ROLES = ['admin', 'youtuber', 'youtube'];
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
+        console.log('[AdminKeys] No user logged in');
         setCanGenerate(false);
         setCheckingAdmin(false);
         return;
       }
 
+      console.log('[AdminKeys] User found:', user.uid, user.email);
+      let hasAccess = false;
+
+      // Method 1: Try API
       try {
         const idToken = await user.getIdToken();
         const res = await fetch('/api/account/me', {
           headers: { 'Authorization': `Bearer ${idToken}` }
         });
-
         const data = await res.json();
+        console.log('[AdminKeys] /api/account/me response:', { ok: data.ok, role: data.role });
         const role = (data.role || '').toLowerCase();
-        const hasAccess = role === 'admin' || role === 'youtuber' || role === 'youtube';
-        setCanGenerate(hasAccess);
-        if (hasAccess) {
-          fetchLimits();
-        }
-      } catch {
-        setCanGenerate(false);
-      } finally {
-        setCheckingAdmin(false);
+        hasAccess = ALLOWED_ROLES.includes(role);
+      } catch (err) {
+        console.warn('[AdminKeys] API check failed:', err);
       }
+
+      // Method 2: Direct RTDB read as fallback
+      if (!hasAccess) {
+        try {
+          const snapshot = await get(ref(db, `users/${user.uid}/role`));
+          const dbRole = (snapshot.val() || '').toString().toLowerCase();
+          console.log('[AdminKeys] Direct RTDB role:', dbRole);
+          hasAccess = ALLOWED_ROLES.includes(dbRole);
+        } catch (err) {
+          console.warn('[AdminKeys] Direct RTDB read failed:', err);
+        }
+      }
+
+      console.log('[AdminKeys] hasAccess:', hasAccess);
+      setCanGenerate(hasAccess);
+      if (hasAccess) {
+        fetchLimits();
+      }
+      setCheckingAdmin(false);
     });
 
     return () => unsubscribe();
